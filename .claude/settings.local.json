@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(sed -i 's/bonch-panel/skillhub-panel/g; s/bonch-hero/skillhub-hero/g; s/bonch-chip/skillhub-chip/g; s/bonch-button-primary/skillhub-button-primary/g; s/bonch-button-secondary/skillhub-button-secondary/g; s/bonch-button-outline/skillhub-button-outline/g; s/bonch-progress/skillhub-progress/g; s/bonch-kicker/skillhub-kicker/g; s/Bonch school/SkillHub/g; s/Bonch School/SkillHub/g' \"$f\")",
+      "Bash(echo \"Updated: $f\")",
+      "Bash(done)"
+    ]
+  }
+}

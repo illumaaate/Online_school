@@ -1,0 +1,341 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum UnitType {
+  MATERIAL
+  VIDEO
+  TEST
+  LIVE
+}
+
+enum TestQuestionType {
+  SINGLE
+  MULTI
+  OPEN
+}
+
+enum CallStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum UnitProgressStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id             String               @id @default(cuid())
+  name           String
+  email          String               @unique
+  passwordHash   String
+  role           Role                 @default(STUDENT)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  enrollments    Enrollment[]
+  taughtCourses  Course[]             @relation("TeacherCourses")
+  lessonRooms    LessonParticipant[]
+  homeworkChecks Homework[]           @relation("HomeworkAuthor")
+  submissions    HomeworkSubmission[]
+  messages       Message[]
+  taughtCalls    CallSession[]        @relation("CallTeacher")
+  studentCalls   CallSession[]        @relation("CallStudent")
+  callMessages   CallMessage[]
+  boardAsTeacher BoardDocument[]      @relation("BoardTeacher")
+  boardAsStudent BoardDocument[]      @relation("BoardStudent")
+  testAttempts   TestAttempt[]
+  testAnswers    TestAnswer[]         @relation("TestAnswerAuthor")
+  unitProgress   UnitProgress[]
+}
+
+model Course {
+  id           String         @id @default(cuid())
+  title        String
+  description  String
+  teacherId    String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  teacher      User           @relation("TeacherCourses", fields: [teacherId], references: [id], onDelete: Cascade)
+  lessons      Lesson[]
+  enrollments  Enrollment[]
+  homeworks    Homework[]
+  modules      CourseModule[]
+  tests        Test[]
+  unitProgress UnitProgress[]
+}
+
+model Enrollment {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model Lesson {
+  id           String             @id @default(cuid())
+  title        String
+  startsAt     DateTime
+  durationMins Int                @default(60)
+  courseId     String
+  roomName     String             @unique
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  course       Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  participants LessonParticipant[]
+  messages     Message[]
+  homeworks    Homework[]
+  room         LessonRoom?
+  unit         LessonUnit?
+  tests        Test[]
+}
+
+model LessonParticipant {
+  id       String   @id @default(cuid())
+  userId   String
+  lessonId String
+  joinedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson   Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+}
+
+model Homework {
+  id          String               @id @default(cuid())
+  lessonId    String
+  courseId    String
+  authorId    String
+  title       String
+  description String
+  dueDate     DateTime?
+  createdAt   DateTime             @default(now())
+  lesson      Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  course      Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  author      User                 @relation("HomeworkAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  submissions HomeworkSubmission[]
+}
+
+model HomeworkSubmission {
+  id         String   @id @default(cuid())
+  homeworkId String
+  studentId  String
+  content    String
+  status     String   @default("submitted")
+  grade      Int?
+  comment    String?
+  createdAt  DateTime @default(now())
+  homework   Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([homeworkId, studentId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  lessonId  String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LessonRoom {
+  id         String   @id @default(cuid())
+  lessonId   String   @unique
+  boardState Json?
+  updatedAt  DateTime @updatedAt
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+model CourseModule {
+  id        String      @id @default(cuid())
+  courseId  String
+  title     String
+  position  Int         @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  course    Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  units     LessonUnit[]
+}
+
+model LessonUnit {
+  id          String         @id @default(cuid())
+  moduleId    String
+  title       String
+  description String?
+  position    Int            @default(0)
+  unitType    UnitType       @default(MATERIAL)
+  lessonId    String?        @unique
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  module      CourseModule   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lesson      Lesson?        @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  material    LessonMaterial?
+  tests       Test[]
+  progress    UnitProgress[]
+}
+
+model LessonMaterial {
+  id          String     @id @default(cuid())
+  unitId      String     @unique
+  content     String?
+  contentJson Json?
+  videoUrl    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  unit        LessonUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
+
+model UnitProgress {
+  id            String             @id @default(cuid())
+  userId        String
+  unitId        String
+  courseId      String
+  status        UnitProgressStatus @default(IN_PROGRESS)
+  progressPercent Int              @default(0)
+  startedAt     DateTime           @default(now())
+  completedAt   DateTime?
+  lastVisitedAt DateTime           @default(now())
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unit   LessonUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  course Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, unitId])
+  @@index([userId, courseId])
+  @@index([courseId, status])
+  @@index([unitId])
+}
+
+model Test {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  courseId    String?
+  lessonId    String?
+  unitId      String?
+  createdById String
+  isPublished Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  course      Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson      Lesson?      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  unit        LessonUnit?  @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  questions   TestQuestion[]
+  attempts    TestAttempt[]
+}
+
+model TestQuestion {
+  id         String           @id @default(cuid())
+  testId     String
+  question   String
+  type       TestQuestionType @default(SINGLE)
+  position   Int              @default(0)
+  points     Int              @default(1)
+  correctText String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  test       Test             @relation(fields: [testId], references: [id], onDelete: Cascade)
+  options    TestOption[]
+  answers    TestAnswer[]
+}
+
+model TestOption {
+  id         String       @id @default(cuid())
+  questionId String
+  text       String
+  isCorrect  Boolean      @default(false)
+  position   Int          @default(0)
+  question   TestQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model TestAttempt {
+  id             String     @id @default(cuid())
+  testId         String
+  studentId      String
+  startedAt      DateTime   @default(now())
+  submittedAt    DateTime?
+  score          Int?
+  maxScore       Int?
+  requiresReview Boolean    @default(false)
+  test           Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  student        User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers        TestAnswer[]
+}
+
+model TestAnswer {
+  id                String       @id @default(cuid())
+  attemptId         String
+  questionId        String
+  authorId          String
+  selectedOptionIds String[]
+  textAnswer        String?
+  isCorrect         Boolean?
+  score             Int?
+  createdAt         DateTime     @default(now())
+  attempt           TestAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question          TestQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  author            User         @relation("TestAnswerAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model CallSession {
+  id              String      @id @default(cuid())
+  teacherId       String
+  studentId       String
+  inviteToken     String      @unique
+  status          CallStatus  @default(SCHEDULED)
+  topic           String?
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  livekitRoomName String      @unique
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  teacher         User        @relation("CallTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  student         User        @relation("CallStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  messages        CallMessage[]
+}
+
+model CallMessage {
+  id        String      @id @default(cuid())
+  callId    String
+  userId    String
+  content   String
+  createdAt DateTime    @default(now())
+  call      CallSession @relation(fields: [callId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BoardDocument {
+  id         String   @id @default(cuid())
+  teacherId  String
+  studentId  String
+  boardState Json?
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  teacher    User     @relation("BoardTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  student    User     @relation("BoardStudent", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, studentId])
+}

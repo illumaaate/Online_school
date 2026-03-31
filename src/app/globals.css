@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f2f2f2;
+  --foreground: #000000;
+  --surface: #ffffff;
+  --surface-muted: #f8f8f8;
+  --border: #d9d9d9;
+  --muted: #4d4d4d;
+  --accent: #f7941d;
+  --accent-strong: #d97807;
+  --accent-soft: #fff2df;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-fira-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #f2f2f2;
+  color: var(--foreground);
+  font-family: var(--font-fira-sans), "Fira Sans", sans-serif;
+}
+
+::selection {
+  background: rgba(247, 148, 29, 0.28);
+  color: #000000;
+}
+
+a,
+button,
+input,
+textarea,
+select {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+button:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(247, 148, 29, 0.18);
+}
+
+.skillhub-panel {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.skillhub-panel-muted {
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.skillhub-hero {
+  background:
+    linear-gradient(135deg, rgba(0, 0, 0, 0.96), rgba(77, 77, 77, 0.96)),
+    linear-gradient(135deg, rgba(247, 148, 29, 0.24), transparent 65%);
+  color: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.skillhub-chip {
+  border: 1px solid rgba(247, 148, 29, 0.3);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.skillhub-button-primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #000000;
+  box-shadow: 0 12px 24px rgba(247, 148, 29, 0.25);
+}
+
+.skillhub-button-primary:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #ffffff;
+}
+
+.skillhub-button-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  color: inherit;
+}
+
+.skillhub-button-secondary:hover {
+  border-color: var(--accent);
+  background: rgba(247, 148, 29, 0.1);
+}
+
+.skillhub-button-outline {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--foreground);
+}
+
+.skillhub-button-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.skillhub-progress {
+  background: linear-gradient(90deg, var(--accent), #ffb457);
+}
+
+.skillhub-kicker {
+  color: var(--accent);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
