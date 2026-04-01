@@ -71,6 +71,7 @@ export function ExcalidrawBoard({
   }, [callId, lessonId]);
 
   const [initialData, setInitialData] = useState<object | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [ready, setReady] = useState(false);
 
   const apiRef = useRef<ExcalidrawApi | null>(null);
@@ -98,7 +99,9 @@ export function ExcalidrawBoard({
         setInitialData(normalizeBoardState(data.boardState));
         lastSyncAtRef.current = data.updatedAt;
       } catch {
-        if (!cancelled) setInitialData(null);
+        // fetch failed — render empty board
+      } finally {
+        if (!cancelled) setLoaded(true);
       }
     })();
 
@@ -157,6 +160,20 @@ export function ExcalidrawBoard({
     return (
       <div className="w-full rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
         Whiteboard endpoint is not configured: pass `lessonId` or `callId`.
+      </div>
+    );
+  }
+
+  if (!loaded) {
+    return (
+      <div
+        className={clsx(
+          "flex w-full items-center justify-center overflow-hidden rounded-2xl border border-zinc-200 bg-white",
+          canvasHeightClassName ?? "h-[560px]",
+          className,
+        )}
+      >
+        <span className="text-sm text-zinc-400">Загрузка доски...</span>
       </div>
     );
   }

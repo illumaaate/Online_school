@@ -141,3 +141,157 @@ a:focus-visible {
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
+
+/* ── LiveKit overrides ───────────────────────────────────── */
+[data-lk-theme="default"] {
+  --lk-bg: #1a1a1a;
+  --lk-bg2: #2e2e2e;
+  --lk-bg3: #3a3a3a;
+  --lk-bg4: #444444;
+  --lk-control-fg: #ffffff;
+  --lk-control-bg: rgba(255, 255, 255, 0.15);
+  --lk-control-hover-bg: rgba(255, 255, 255, 0.28);
+  --lk-control-active-bg: #f7941d;
+  --lk-control-active-hover-bg: #d97807;
+  --lk-accent-bg: #f7941d;
+  --lk-accent-fg: #000000;
+}
+
+/* Сброс height для кастомного layout (не VideoConference) */
+[data-lk-theme] {
+  height: auto;
+}
+
+/* VideoConference — flex-колонка, control-bar всегда внизу */
+.lk-video-conference {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.lk-video-conference-inner {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.lk-grid-layout-wrapper,
+.lk-focus-layout-wrapper {
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.lk-grid-layout,
+.lk-focus-layout {
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
+
+.lk-focused-participant {
+  overflow: hidden !important;
+  min-height: 0 !important;
+}
+
+/* Видеоэлемент не должен вылезать за тайл */
+.lk-participant-tile video,
+.lk-participant-tile canvas {
+  max-height: 100% !important;
+  object-fit: cover !important;
+}
+
+/* Control bar — Discord style */
+.lk-control-bar {
+  flex-shrink: 0 !important;
+  background: #1e1f22 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 0.75rem 1rem !important;
+  gap: 0.5rem !important;
+}
+
+/* Кнопки */
+.lk-button {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 0.625rem !important;
+}
+
+.lk-button:hover {
+  background: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.lk-button[aria-pressed="true"],
+.lk-button.lk-button-active {
+  background: #f7941d !important;
+  border-color: #f7941d !important;
+  color: #000000 !important;
+}
+
+.lk-disconnect-button {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.lk-disconnect-button:hover {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+}
+
+/* Тайлы участников */
+.lk-participant-tile {
+  border-radius: 0.75rem !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #2a2a2a !important;
+}
+
+/* Иконки микрофона и камеры около имени */
+.lk-participant-metadata-item {
+  color: #ffffff !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.lk-track-muted-indicator-microphone,
+.lk-track-muted-indicator-camera {
+  filter: brightness(0) invert(1) !important;
+  opacity: 1 !important;
+}
+
+/* Индикатор качества соединения */
+.lk-connection-quality svg,
+.lk-connection-quality * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+/* Имя участника */
+.lk-participant-name {
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  color: #ffffff !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  padding: 0.15rem 0.4rem !important;
+  border-radius: 0.25rem !important;
+}
+
+.lk-room-container {
+  height: auto !important;
+}
+
+.lk-control-bar {
+  justify-content: center !important;
+}
+
+.lk-disconnect-button {
+  border-radius: 8px !important;
+}
+
+/* Скрываем бесполезную кнопку Start Audio */
+.lk-start-audio-button {
+  display: none !important;
+}
+

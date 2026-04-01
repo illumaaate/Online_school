@@ -46,7 +46,7 @@ export default async function CallsPage() {
               Teacher: {call.teacher.name} | Student: {call.student.name}
             </p>
             <p className="text-xs text-zinc-500">Invite: /join/{call.inviteToken}</p>
-            <Link href={`/calls/${call.id}`} className="mt-2 inline-block rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white">
+            <Link href={`/calls/${call.id}`} className="skillhub-button-primary mt-2 inline-block rounded-xl px-3 py-2 text-sm font-medium">
               Открыть звонок
             </Link>
           </article>

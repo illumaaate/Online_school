@@ -5,7 +5,21 @@
       "Bash(do)",
       "Bash(sed -i 's/bonch-panel/skillhub-panel/g; s/bonch-hero/skillhub-hero/g; s/bonch-chip/skillhub-chip/g; s/bonch-button-primary/skillhub-button-primary/g; s/bonch-button-secondary/skillhub-button-secondary/g; s/bonch-button-outline/skillhub-button-outline/g; s/bonch-progress/skillhub-progress/g; s/bonch-kicker/skillhub-kicker/g; s/Bonch school/SkillHub/g; s/Bonch School/SkillHub/g' \"$f\")",
       "Bash(echo \"Updated: $f\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(find C:/Users/Artem/Documents/PROECT_SCHOOL/node_modules/@livekit/components-react/dist -name *.css)",
+      "Bash(find C:/Users/Artem/Documents/PROECT_SCHOOL/node_modules/@livekit/components-styles/dist -name *.css)",
+      "Bash(xargs grep:*)",
+      "Bash(node -e \":*)",
+      "Bash(grep -o \"\"lk-[a-z-]*\"\" C:/Users/Artem/Documents/PROECT_SCHOOL/node_modules/@livekit/components-react/dist/index.js C:/Users/Artem/Documents/PROECT_SCHOOL/node_modules/@livekit/components-react/dist/shared-iyASaIaj.js)",
+      "Bash(tr ';' '\\\\n')",
+      "Bash(node:*)",
+      "Bash(tr '{' '\\\\n')",
+      "Bash(./WHITEBOARD_CODE_REFERENCE.md:*)",
+      "Bash(wc:*)",
+      "Bash(python3:*)",
+      "Bash(cat:*)",
+      "Bash(ls -lh WHITEBOARD*.*)",
+      "Bash(ls -1 WHITEBOARD_*.*)"
     ]
   }
 }

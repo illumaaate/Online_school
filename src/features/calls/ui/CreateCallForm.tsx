@@ -43,7 +43,7 @@ export function CreateCallForm({ students }: { students: Student[] }) {
       </select>
       <input className="w-full rounded-lg border border-zinc-300 p-2" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Тема звонка" />
       <input className="w-full rounded-lg border border-zinc-300 p-2" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-      <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm text-white">Создать звонок</button>
+      <button className="skillhub-button-primary rounded-xl px-4 py-2 text-sm font-medium">Создать звонок</button>
       {status ? <p className="text-sm text-zinc-600">{status}</p> : null}
     </form>
   );

@@ -1,0 +1,78 @@
+WHITEBOARD IMPLEMENTATION ANALYSIS
+===================================
+
+QUICK OVERVIEW:
+- Library: Excalidraw v0.18.0
+- Sync: Polling-based every 3 seconds
+- Storage: PostgreSQL (Prisma ORM) 
+- State: JSON (elements, appState, files)
+- Save Debounce: 2200ms
+- Sync Debounce: 2500ms (after write)
+
+FILE LOCATIONS:
+- Component: src/features/whiteboard/ui/ExcalidrawBoard.tsx (207 lines)
+- Call API: src/app/api/calls/[id]/board/route.ts
+- Lesson API: src/app/api/lessons/[id]/board/route.ts
+- Database: prisma/schema.prisma (BoardDocument + LessonRoom models)
+- Integration: CallRoom.tsx, LessonRoom.tsx
+
+DATABASE:
+- BoardDocument: One per (teacherId, studentId) pair - for calls
+- LessonRoom: One per lessonId - for lessons
+- Field: boardState (JSON with elements, appState, files)
+- Field: updatedAt (auto-managed timestamp)
+
+ARCHITECTURE:
+1. Component mounts → Fetch initial state from server
+2. User draws → onChange debounced 2200ms → POST to server
+3. Server → UPSERT to database, return updatedAt
+4. Polling every 3s → GET latest state
+5. Compare timestamps → updateScene() if changed
+6. Other users see changes 3-6 seconds later
+
+SYNC FLOW:
+- Save: User edits → 2200ms debounce → POST
+- After POST: Set lastLocalWriteAtRef = now()
+- Polling: Every 3s, check if (now - lastLocalWriteAtRef) < 2500ms
+- If debounce window: SKIP polling (avoid conflicts)
+- If ready: GET remote state, compare updatedAt, updateScene() if changed
+
+COLLABORATION MODEL:
+- Last-write-wins: Later updatedAt timestamp wins
+- Concurrent edits: Can cause data loss
+- No CRDT/OT implementation
+- No presence cursors (collaborators cleared before save)
+
+SECURITY:
+Calls (✅ Good):
+- Validates user is teacher OR student in call
+- Isolated per (teacherId, studentId)
+- Safe Prisma queries
+
+Lessons (⚠️ Issues):
+- Only checks if user authenticated
+- Does NOT validate lesson membership
+- Any logged-in user can access/modify any lesson board
+
+PERFORMANCE:
+- Per save: ~7KB
+- Save frequency: 1 per 2.2s (aggressive) to 1 per 10s (moderate)
+- Database growth: ~400-2000GB per semester
+- Latency to see others: 3-6 seconds
+
+COMPONENT STATE:
+- initialData: Board state from server
+- ready: Excalidraw initialized flag
+- apiRef: Excalidraw API reference
+- lastSyncAtRef: Server's last updatedAt timestamp
+- lastSavedAtRef: Tracks 2200ms save debounce
+- lastLocalWriteAtRef: Tracks 2500ms sync debounce
+
+KEY TIMING:
+- t=0ms: User starts drawing
+- t=2200ms: First save allowed (debounce window)
+- t=2300ms: POST sent to server
+- t=2300ms: lastLocalWriteAtRef set
+- t=3000ms: First polling (skips due to debounce)
+- t=5000ms: Polling (debounce expired, can sync)
+- t=6000ms: Next poll

@@ -43,7 +43,7 @@ export async function setSession(userId: string, role: Role) {
   const jar = await cookies();
   jar.set(SESSION_COOKIE, encodeSession({ userId, role }), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: false,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 14,

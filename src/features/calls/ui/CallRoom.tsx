@@ -2,23 +2,23 @@ import { ExcalidrawBoard } from "@/features/whiteboard/ui/ExcalidrawBoard";
 import { CallVideoRoom } from "@/features/calls/ui/CallVideoRoom";
 import { CallChat } from "@/features/calls/ui/CallChat";
 
-export function CallRoom({ callId }: { callId: string }) {
+export function CallRoom({ callId, topic }: { callId: string; topic: string }) {
   return (
-    <section className="space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+    <div className="space-y-3">
+      <h1 className="text-lg font-semibold">{topic}</h1>
+
+      <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
         <CallVideoRoom callId={callId} />
+        <CallChat callId={callId} />
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-medium text-zinc-700">Онлайн-доска</h2>
+      <div className="skillhub-panel overflow-hidden rounded-xl">
         <ExcalidrawBoard
           callId={callId}
-          className="w-full"
-          canvasHeightClassName="h-[680px]"
+          className="!rounded-none !border-0"
+          canvasHeightClassName="h-[600px]"
         />
       </div>
-
-      <CallChat callId={callId} />
-    </section>
+    </div>
   );
 }

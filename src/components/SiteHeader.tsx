@@ -10,15 +10,15 @@ export async function SiteHeader() {
       <div className="h-1 w-full bg-[var(--accent)]" />
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-6">
         <Link href="/" className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 bg-black text-sm font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-            BS
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 bg-[var(--accent)] text-lg font-bold text-black">
+            S
           </span>
           <span className="min-w-0">
             <span className="block truncate text-lg font-semibold text-black">
               SkillHub
             </span>
             <span className="block text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-              Digital Campus
+              Онлайн Школа
             </span>
           </span>
         </Link>

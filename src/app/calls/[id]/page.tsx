@@ -11,13 +11,5 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
     return <p>Нет доступа.</p>;
   }
 
-  return (
-    <section className="space-y-5">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-        <h1 className="text-2xl font-semibold">{call.topic ?? "Звонок"}</h1>
-        <p className="text-sm text-zinc-600">Статус: {call.status}</p>
-      </div>
-      <CallRoom callId={call.id} />
-    </section>
-  );
+  return <CallRoom callId={call.id} topic={call.topic ?? "Звонок"} />;
 }

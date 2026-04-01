@@ -1,50 +1,124 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LiveKitRoom as Room,
-  VideoConference,
+  useTracks,
+  ControlBar,
+  useMaybeRoomContext,
 } from "@livekit/components-react";
+import { Track } from "livekit-client";
 
-type TokenResponse = {
-  token: string;
-  wsUrl: string;
-  roomName?: string;
-};
+type TokenResponse = { token: string; wsUrl: string };
 
-function buildHints(errorText: string) {
-  const text = errorText.toLowerCase();
-  const hints = [
-    "Проверьте, что звонок открыт тем же пользователем (teacher/student), для которого он создан.",
-    "Убедитесь, что в `.env` указаны `NEXT_PUBLIC_LIVEKIT_WS_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`.",
-    "После изменения `.env` обязательно перезапустите `npm run dev`.",
-  ];
+function buildHint(errorText: string) {
+  const t = errorText.toLowerCase();
+  if (t.includes("forbidden") || t.includes("403")) return "Нет доступа к этому звонку.";
+  if (t.includes("unauthorized") || t.includes("401")) return "Сессия истекла — войдите заново.";
+  return "Проверьте LIVEKIT_* в .env и перезапустите сервер.";
+}
 
-  if (text.includes("forbidden") || text.includes("403")) {
-    return [
-      "У текущего пользователя нет доступа к этому звонку.",
-      "Войдите под нужным аккаунтом (преподаватель или назначенный студент).",
-    ];
+function AudioAutoStart() {
+  const room = useMaybeRoomContext();
+  useEffect(() => { if (room) void room.startAudio(); }, [room]);
+  return null;
+}
+
+// Рендерит один видеотайл через прямой вызов track.attach() — никаких LiveKit стилей
+function VideoTile({ trackRef, isLocal, name, solo }: {
+  trackRef: { publication?: { track?: { attach: (el: HTMLVideoElement) => void; detach: (el: HTMLVideoElement) => void; sid?: string } } };
+  isLocal: boolean;
+  name: string;
+  solo?: boolean;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    const track = trackRef.publication?.track;
+    if (!el || !track) return;
+    track.attach(el);
+    return () => { track.detach(el); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackRef.publication?.track?.sid]);
+
+  return (
+    <div style={{
+      position: "relative",
+      flex: solo ? "none" : 1,
+      width: solo ? "auto" : undefined,
+      height: "100%",
+      aspectRatio: solo ? "16 / 9" : undefined,
+      maxWidth: "100%",
+      minWidth: 0,
+      overflow: "hidden",
+      borderRadius: 8,
+      background: "#27272a",
+    }}>
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isLocal}
+        style={{
+          position: "absolute",
+          top: 0, left: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
+        }}
+      />
+      <span style={{
+        position: "absolute",
+        bottom: 4, left: 6,
+        fontSize: 10,
+        color: "#fff",
+        background: "rgba(0,0,0,0.6)",
+        padding: "1px 6px",
+        borderRadius: 4,
+      }}>
+        {name}
+      </span>
+    </div>
+  );
+}
+
+function VideoArea() {
+  const tracks = useTracks(
+    [{ source: Track.Source.Camera, withPlaceholder: false }],
+    { onlySubscribed: false },
+  );
+
+  if (tracks.length === 0) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontSize: 12, color: "#71717a" }}>Камера выключена</span>
+      </div>
+    );
   }
 
-  if (text.includes("unauthorized") || text.includes("401")) {
-    return [
-      "Сессия истекла. Выполните вход заново и откройте страницу еще раз.",
-    ];
-  }
+  const solo = tracks.length === 1;
 
-  if (
-    text.includes("livekit") ||
-    text.includes("token") ||
-    text.includes("ws")
-  ) {
-    return [
-      "Похоже, проблема в конфигурации LiveKit или выдаче токена.",
-      ...hints,
-    ];
-  }
-
-  return hints;
+  return (
+    <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
+      <div style={{
+        position: "absolute", inset: 4,
+        display: "flex", gap: 4, overflow: "hidden",
+        justifyContent: solo ? "center" : undefined,
+      }}>
+        {tracks.map((t) => (
+          <VideoTile
+            key={t.participant.identity}
+            trackRef={t as Parameters<typeof VideoTile>[0]["trackRef"]}
+            isLocal={t.participant.isLocal}
+            name={t.participant.name ?? t.participant.identity}
+            solo={solo}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function CallVideoRoom({ callId }: { callId: string }) {
@@ -52,126 +126,90 @@ export function CallVideoRoom({ callId }: { callId: string }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [retryTick, setRetryTick] = useState(0);
-  const [connectionStatus, setConnectionStatus] = useState<
-    "connecting" | "connected" | "disconnected"
-  >("connecting");
+  const [connected, setConnected] = useState(false);
 
   const loadToken = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    setData(null);
-
+    setLoading(true); setError(""); setData(null);
     try {
-      const res = await fetch(`/api/calls/${callId}/livekit-token`, {
-        method: "GET",
-        cache: "no-store",
-      });
-
+      const res = await fetch(`/api/calls/${callId}/livekit-token`, { cache: "no-store" });
       if (!res.ok) {
-        const payload = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(
-          payload.error ?? `Token request failed (${res.status})`,
-        );
+        const p = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(p.error ?? `HTTP ${res.status}`);
       }
-
-      const payload = (await res.json()) as TokenResponse;
-      if (!payload.token || !payload.wsUrl) {
-        throw new Error("Некорректный ответ сервера токена");
-      }
-
-      setData(payload);
-      setConnectionStatus("connecting");
+      const p = (await res.json()) as TokenResponse;
+      if (!p.token || !p.wsUrl) throw new Error("Некорректный ответ сервера");
+      setData(p);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Не удалось подключить видеозвонок",
-      );
-      setConnectionStatus("disconnected");
+      setError(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setLoading(false);
     }
   }, [callId]);
 
-  useEffect(() => {
-    void loadToken();
-  }, [loadToken, retryTick]);
-
-  const hintList = useMemo(() => buildHints(error), [error]);
+  useEffect(() => { void loadToken(); }, [loadToken, retryTick]);
+  const hint = useMemo(() => buildHint(error), [error]);
 
   if (loading) {
     return (
-      <div className="w-full">
-        <div className="mb-2 flex items-center justify-between text-xs text-zinc-500">
-          <span>Видеозвонок</span>
-          <span>Подключение…</span>
-        </div>
-        <div className="flex h-[420px] w-full items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-100 text-sm text-zinc-600 md:h-[520px]">
-          Подготавливаем комнату LiveKit...
-        </div>
+      <div className="flex h-16 items-center gap-3 rounded-xl border border-[var(--border)] bg-zinc-900 px-4">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
+        <span className="text-sm text-zinc-400">Подключение…</span>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="w-full">
-        <div className="mb-2 text-xs text-zinc-500">Видеозвонок</div>
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-          <p className="text-sm font-medium text-red-700">
-            Не удалось подключить видео
-          </p>
-          <p className="mt-1 text-sm text-red-600">
-            {error || "Неизвестная ошибка"}
-          </p>
-
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-red-700/90">
-            {hintList.map((hint) => (
-              <li key={hint}>{hint}</li>
-            ))}
-          </ul>
-
-          <button
-            type="button"
-            onClick={() => setRetryTick((prev) => prev + 1)}
-            className="mt-4 rounded-lg bg-zinc-900 px-4 py-2 text-sm text-white"
-          >
-            Повторить подключение
-          </button>
+      <div className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-red-700">{error || "Ошибка"}</p>
+          <p className="text-xs text-red-500 mt-0.5">{hint}</p>
         </div>
+        <button onClick={() => setRetryTick((n) => n + 1)} className="skillhub-button-primary shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium">
+          Повторить
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="w-full">
-      <div className="mb-2 flex items-center justify-between text-xs text-zinc-500">
-        <span>Видеозвонок</span>
-        <span>
-          {connectionStatus === "connected"
-            ? "Connected"
-            : connectionStatus === "connecting"
-              ? "Connecting"
-              : "Disconnected"}
-        </span>
+    <div style={{
+      height: 320,
+      borderRadius: 12,
+      overflow: "hidden",
+      background: "#18181b",
+      display: "flex",
+      flexDirection: "column",
+    }}>
+      {/* Статус */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 5,
+        padding: "6px 10px",
+        fontSize: 11,
+        color: connected ? "#4ade80" : "#fbbf24",
+        flexShrink: 0,
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: connected ? "#4ade80" : "#fbbf24", flexShrink: 0 }} />
+        {connected ? "В сети" : "Подключение…"}
       </div>
 
-      <div className="w-full overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900 p-2">
-        <div className="h-[420px] w-full md:h-[520px] lg:h-[620px]">
-          <Room
-            token={data.token}
-            serverUrl={data.wsUrl}
-            connect
-            video
-            audio
-            onConnected={() => setConnectionStatus("connected")}
-            onDisconnected={() => setConnectionStatus("disconnected")}
-            onError={(roomError) => setError(roomError.message)}
-          >
-            <VideoConference />
-          </Room>
-        </div>
-      </div>
+      <Room
+        token={data.token}
+        serverUrl={data.wsUrl}
+        connect
+        options={{ dynacast: true, adaptiveStream: true }}
+        onConnected={() => setConnected(true)}
+        onDisconnected={() => setConnected(false)}
+        onError={(e) => setError(e.message)}
+        style={{ flex: 1, minHeight: 0, height: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
+      >
+        <AudioAutoStart />
+        <VideoArea />
+        <ControlBar
+          controls={{ screenShare: false, chat: false, settings: false }}
+          style={{ flexShrink: 0, background: "rgba(0,0,0,0.3)", borderTop: "1px solid rgba(255,255,255,0.08)", padding: "5px 8px", gap: 6 }}
+        />
+      </Room>
     </div>
   );
 }
