@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import {
   LiveKitRoom as Room,
   useTracks,
   ControlBar,
-  useMaybeRoomContext,
+  RoomAudioRenderer,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
 
@@ -18,11 +19,6 @@ function buildHint(errorText: string) {
   return "Проверьте LIVEKIT_* в .env и перезапустите сервер.";
 }
 
-function AudioAutoStart() {
-  const room = useMaybeRoomContext();
-  useEffect(() => { if (room) void room.startAudio(); }, [room]);
-  return null;
-}
 
 // Рендерит один видеотайл через прямой вызов track.attach() — никаких LiveKit стилей
 function VideoTile({ trackRef, isLocal, name, solo }: {
@@ -197,13 +193,15 @@ export function CallVideoRoom({ callId }: { callId: string }) {
         token={data.token}
         serverUrl={data.wsUrl}
         connect
+        audio
+        video
         options={{ dynacast: true, adaptiveStream: true }}
         onConnected={() => setConnected(true)}
         onDisconnected={() => setConnected(false)}
         onError={(e) => setError(e.message)}
         style={{ flex: 1, minHeight: 0, height: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
-        <AudioAutoStart />
+        <RoomAudioRenderer />
         <VideoArea />
         <ControlBar
           controls={{ screenShare: false, chat: false, settings: false }}
