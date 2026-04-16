@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { LogoutButton } from "@/components/LogoutButton";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export async function SiteHeader() {
   const user = await getSessionUser();
@@ -53,6 +54,15 @@ export async function SiteHeader() {
               Войти
             </Link>
           )}
+          {user ? (
+            <Link
+              href="/profile"
+              className="rounded-full px-3 py-2 hover:bg-[var(--accent-soft)] hover:text-black"
+            >
+              Профиль
+            </Link>
+          ) : null}
+          {user ? <NotificationBell /> : null}
           {user ? <LogoutButton /> : null}
           {!user ? (
             <Link

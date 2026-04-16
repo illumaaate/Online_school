@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type Homework = { id: string; title: string; description: string };
 
@@ -51,17 +52,31 @@ export function HomeworkPanel({
       <div className="space-y-3">
         {homeworks.map((hw) => (
           <div key={hw.id} className="rounded-xl border border-zinc-200 p-3">
-            <p className="font-medium">{hw.title}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-medium">{hw.title}</p>
+              {canCreate && (
+                <Link
+                  href={`/homework/${hw.id}/submissions`}
+                  className="shrink-0 rounded-lg border border-zinc-300 px-2.5 py-1 text-xs hover:border-[var(--accent)] hover:text-[var(--accent-strong)]"
+                >
+                  Решения
+                </Link>
+              )}
+            </div>
             <p className="mt-1 text-sm text-zinc-600">{hw.description}</p>
-            <textarea
-              className="mt-2 w-full rounded-lg border border-zinc-300 p-2"
-              placeholder="Ваш ответ"
-              value={submission[hw.id] ?? ""}
-              onChange={(e) => setSubmission((prev) => ({ ...prev, [hw.id]: e.target.value }))}
-            />
-            <button className="mt-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm" onClick={() => submitHomework(hw.id)}>
-              Отправить решение
-            </button>
+            {!canCreate && (
+              <>
+                <textarea
+                  className="mt-2 w-full rounded-lg border border-zinc-300 p-2"
+                  placeholder="Ваш ответ"
+                  value={submission[hw.id] ?? ""}
+                  onChange={(e) => setSubmission((prev) => ({ ...prev, [hw.id]: e.target.value }))}
+                />
+                <button className="mt-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm" onClick={() => submitHomework(hw.id)}>
+                  Отправить решение
+                </button>
+              </>
+            )}
           </div>
         ))}
         {!homeworks.length ? <p className="text-sm text-zinc-600">Пока нет домашних заданий.</p> : null}

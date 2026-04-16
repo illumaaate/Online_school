@@ -19,7 +19,19 @@
       "Bash(python3:*)",
       "Bash(cat:*)",
       "Bash(ls -lh WHITEBOARD*.*)",
-      "Bash(ls -1 WHITEBOARD_*.*)"
+      "Bash(ls -1 WHITEBOARD_*.*)",
+      "Bash(npx prisma *)",
+      "Bash(npm install *)",
+      "Bash(grep -r \"transpilePackages\\\\|serverExternalPackages\\\\|ESM\\\\|esm\" C:/Users/Artem/Documents/PROECT_SCHOOL/next.config*)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(ls \"C:/Users/Artem/Documents/PROECT_SCHOOL/\"*.docx)",
+      "Bash(ls *.docx)",
+      "Bash(python -c \"import docx; print\\('python-docx ok'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -c \" import PyPDF2, sys with open\\(r'C:\\\\\\\\Users\\\\\\\\Artem\\\\\\\\Documents\\\\\\\\PROECT_SCHOOL\\\\\\\\оформление.pdf','rb'\\) as f: r = PyPDF2.PdfReader\\(f\\) for i,p in enumerate\\(r.pages\\): print\\(f'=== PAGE {i+1} ==='\\) print\\(p.extract_text\\(\\)\\) \")",
+      "Bash(python *)"
     ]
   }
 }

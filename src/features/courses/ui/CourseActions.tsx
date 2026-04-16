@@ -3,20 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type UnitType = "MATERIAL" | "VIDEO" | "TEST" | "LIVE";
-
 export function CourseActions({
   courseId,
   canManage,
+  isAdmin = false,
 }: {
   courseId: string;
   canManage: boolean;
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
 
   const [moduleTitle, setModuleTitle] = useState("");
   const [unitTitle, setUnitTitle] = useState("");
-  const [unitType, setUnitType] = useState<UnitType>("MATERIAL");
   const [selectedModule, setSelectedModule] = useState("");
   const [modules, setModules] = useState<Array<{ id: string; title: string }>>([]);
 
@@ -30,7 +29,9 @@ export function CourseActions({
     module: false,
     unit: false,
     session: false,
+    delete: false,
   });
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const fieldClass =
     "w-full rounded-2xl border border-black/10 bg-[var(--surface-muted)] px-4 py-3 text-sm";
@@ -123,7 +124,7 @@ export function CourseActions({
       const res = await fetch(`/api/modules/${selectedModule}/units`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: unitTitle.trim(), unitType }),
+        body: JSON.stringify({ title: unitTitle.trim() }),
       });
 
       if (!res.ok) {
@@ -180,6 +181,25 @@ export function CourseActions({
     }
   }
 
+  async function deleteCourse() {
+    setLoading((prev) => ({ ...prev, delete: true }));
+    try {
+      const res = await fetch(`/api/courses/${courseId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/courses");
+        router.refresh();
+      } else {
+        setStatus("Не удалось удалить курс.");
+        setConfirmDelete(false);
+      }
+    } catch {
+      setStatus("Сетевая ошибка при удалении курса.");
+      setConfirmDelete(false);
+    } finally {
+      setLoading((prev) => ({ ...prev, delete: false }));
+    }
+  }
+
   return (
     <div className="space-y-4">
       <button
@@ -233,17 +253,6 @@ export function CourseActions({
               placeholder="Название занятия"
             />
 
-            <select
-              className={fieldClass}
-              value={unitType}
-              onChange={(e) => setUnitType(e.target.value as UnitType)}
-            >
-              <option value="MATERIAL">Материал</option>
-              <option value="VIDEO">Видео</option>
-              <option value="TEST">Тест</option>
-              <option value="LIVE">Live</option>
-            </select>
-
             <button
               className="skillhub-button-outline rounded-2xl px-4 py-2.5 text-sm disabled:opacity-60"
               type="submit"
@@ -294,6 +303,41 @@ export function CourseActions({
           </form>
         </div>
       ) : null}
+
+      {isAdmin && (
+        <div className="pt-1">
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="text-sm text-red-500 hover:underline"
+            >
+              Удалить курс
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-red-600 font-medium">
+                Удалить курс безвозвратно? Все модули, занятия и тесты будут удалены.
+              </span>
+              <button
+                type="button"
+                onClick={deleteCourse}
+                disabled={loading.delete}
+                className="rounded-2xl bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-60"
+              >
+                {loading.delete ? "Удаление..." : "Да, удалить"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="rounded-2xl border border-black/10 px-4 py-2 text-sm text-[var(--muted)]"
+              >
+                Отмена
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {status ? <p className="text-sm text-[var(--muted)]">{status}</p> : null}
     </div>

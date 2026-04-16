@@ -48,10 +48,23 @@ function normalizeUnitIds(unitIds: string[]) {
 
 const STORAGE_MATCH = "skillhub:course-progress";
 
+function syncProgressToDb(
+  unitId: string,
+  status: "in_progress" | "completed",
+  progressPercent: number,
+) {
+  fetch(`/api/units/${unitId}/progress`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, progressPercent }),
+  }).catch(() => null); // fire-and-forget, ignore errors
+}
+
 export function useCourseProgress(
   courseId: string,
   unitIds: string[] = [],
 ): UseCourseProgressResult {
+  const [mounted, setMounted] = useState(false);
   const [, setVersion] = useState(0);
 
   const refresh = useCallback(() => {
@@ -59,6 +72,11 @@ export function useCourseProgress(
   }, []);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     const onStorage = (event: StorageEvent) => {
       if (!courseId) return;
       if (!event.key || event.key.includes(STORAGE_MATCH)) {
@@ -80,14 +98,14 @@ export function useCourseProgress(
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [courseId, refresh]);
+  }, [courseId, refresh, mounted]);
 
   const stableUnitIds = useMemo(() => normalizeUnitIds(unitIds), [unitIds]);
-  const state = courseId ? getCourseProgress(courseId) : null;
-  const progressPercent = courseId
+  const state = mounted && courseId ? getCourseProgress(courseId) : null;
+  const progressPercent = mounted && courseId
     ? getCourseProgressPercent(courseId, stableUnitIds)
     : 0;
-  const completedUnits = courseId
+  const completedUnits = mounted && courseId
     ? getCompletedUnitsCount(courseId, stableUnitIds)
     : 0;
 
@@ -105,6 +123,7 @@ export function useCourseProgress(
     (unitId: string, suggestedPercent = 10) => {
       if (!courseId || !unitId) return null;
       const result = markUnitVisited(courseId, unitId, suggestedPercent);
+      syncProgressToDb(unitId, "in_progress", result?.progressPercent ?? suggestedPercent);
       refresh();
       return result;
     },
@@ -115,6 +134,7 @@ export function useCourseProgress(
     (unitId: string) => {
       if (!courseId || !unitId) return null;
       const result = markUnitCompleted(courseId, unitId);
+      syncProgressToDb(unitId, "completed", 100);
       refresh();
       return result;
     },
@@ -126,11 +146,9 @@ export function useCourseProgress(
       if (!courseId || !unitId) return null;
 
       const normalized = Math.max(0, Math.min(100, Math.round(progress)));
-      const result = upsertUnitProgress(courseId, unitId, {
-        status: normalized >= 100 ? "completed" : "in_progress",
-        progressPercent: normalized,
-      });
-
+      const status = normalized >= 100 ? "completed" : "in_progress";
+      const result = upsertUnitProgress(courseId, unitId, { status, progressPercent: normalized });
+      syncProgressToDb(unitId, status, normalized);
       refresh();
       return result;
     },
@@ -154,6 +172,7 @@ export function useUnitProgress(
   courseId: string,
   unitId: string,
 ): UseUnitProgressResult {
+  const [mounted, setMounted] = useState(false);
   const [, setVersion] = useState(0);
 
   const refresh = useCallback(() => {
@@ -161,6 +180,11 @@ export function useUnitProgress(
   }, []);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     const onStorage = (event: StorageEvent) => {
       if (!courseId || !unitId) return;
       if (!event.key || event.key.includes(STORAGE_MATCH)) {
@@ -170,9 +194,9 @@ export function useUnitProgress(
 
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [courseId, unitId, refresh]);
+  }, [courseId, unitId, refresh, mounted]);
 
-  const unit = !courseId || !unitId ? null : getUnitProgress(courseId, unitId);
+  const unit = mounted && courseId && unitId ? getUnitProgress(courseId, unitId) : null;
 
   const progressPercent = unit?.progressPercent ?? 0;
   const completed = unit?.status === "completed";
@@ -181,6 +205,7 @@ export function useUnitProgress(
     (suggestedPercent = 10) => {
       if (!courseId || !unitId) return null;
       const result = markUnitVisited(courseId, unitId, suggestedPercent);
+      syncProgressToDb(unitId, "in_progress", result?.progressPercent ?? suggestedPercent);
       refresh();
       return result;
     },
@@ -190,6 +215,7 @@ export function useUnitProgress(
   const markCompletedForCurrent = useCallback(() => {
     if (!courseId || !unitId) return null;
     const result = markUnitCompleted(courseId, unitId);
+    syncProgressToDb(unitId, "completed", 100);
     refresh();
     return result;
   }, [courseId, unitId, refresh]);
@@ -199,11 +225,9 @@ export function useUnitProgress(
       if (!courseId || !unitId) return null;
 
       const normalized = Math.max(0, Math.min(100, Math.round(progress)));
-      const result = upsertUnitProgress(courseId, unitId, {
-        status: normalized >= 100 ? "completed" : "in_progress",
-        progressPercent: normalized,
-      });
-
+      const status = normalized >= 100 ? "completed" : "in_progress";
+      const result = upsertUnitProgress(courseId, unitId, { status, progressPercent: normalized });
+      syncProgressToDb(unitId, status, normalized);
       refresh();
       return result;
     },

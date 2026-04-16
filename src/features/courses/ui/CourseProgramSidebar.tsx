@@ -33,18 +33,7 @@ type CourseProgramSidebarProps = {
 };
 
 function unitTypeLabel(unitType: ProgramUnitItem["unitType"]) {
-  switch (unitType) {
-    case "MATERIAL":
-      return "Материал";
-    case "VIDEO":
-      return "Видео";
-    case "TEST":
-      return "Тест";
-    case "LIVE":
-      return "Live";
-    default:
-      return unitType;
-  }
+  return unitType === "LIVE" ? "Live" : null;
 }
 
 function calcProgressFallback(
@@ -196,16 +185,18 @@ export function CourseProgramSidebar({
                             {unit.title}
                           </Link>
 
-                          <span
-                            className={clsx(
-                              "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium",
-                              isActiveUnit || hasActiveTest
-                                ? "border border-[var(--accent)] bg-white text-[var(--accent-strong)]"
-                                : "border border-black/10 bg-white text-[var(--muted)]",
-                            )}
-                          >
-                            {unitTypeLabel(unit.unitType)}
-                          </span>
+                          {unitTypeLabel(unit.unitType) ? (
+                            <span
+                              className={clsx(
+                                "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium",
+                                isActiveUnit || hasActiveTest
+                                  ? "border border-[var(--accent)] bg-white text-[var(--accent-strong)]"
+                                  : "border border-black/10 bg-white text-[var(--muted)]",
+                              )}
+                            >
+                              {unitTypeLabel(unit.unitType)}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
 

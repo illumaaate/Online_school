@@ -33,3 +33,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   });
   return NextResponse.json(course);
 }
+
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user.role !== Role.ADMIN) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const course = await db.course.findUnique({ where: { id }, select: { id: true } });
+  if (!course) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await db.course.delete({ where: { id } });
+  return new NextResponse(null, { status: 204 });
+}

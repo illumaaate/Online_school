@@ -173,7 +173,8 @@ export function CallVideoRoom({ callId }: { callId: string }) {
       height: 320,
       borderRadius: 12,
       overflow: "hidden",
-      background: "#18181b",
+      background: "#ffffff",
+      border: "1px solid #d9d9d9",
       display: "flex",
       flexDirection: "column",
     }}>
@@ -182,10 +183,10 @@ export function CallVideoRoom({ callId }: { callId: string }) {
         display: "flex", alignItems: "center", gap: 5,
         padding: "6px 10px",
         fontSize: 11,
-        color: connected ? "#4ade80" : "#fbbf24",
+        color: connected ? "#16a34a" : "#ca8a04",
         flexShrink: 0,
       }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: connected ? "#4ade80" : "#fbbf24", flexShrink: 0 }} />
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: connected ? "#16a34a" : "#ca8a04", flexShrink: 0 }} />
         {connected ? "В сети" : "Подключение…"}
       </div>
 
@@ -205,7 +206,7 @@ export function CallVideoRoom({ callId }: { callId: string }) {
         <VideoArea />
         <ControlBar
           controls={{ screenShare: false, chat: false, settings: false }}
-          style={{ flexShrink: 0, background: "rgba(0,0,0,0.3)", borderTop: "1px solid rgba(255,255,255,0.08)", padding: "5px 8px", gap: 6 }}
+          style={{ flexShrink: 0, background: "#f4f4f5", borderTop: "1px solid #e4e4e7", padding: "5px 8px", gap: 6 }}
         />
       </Room>
     </div>

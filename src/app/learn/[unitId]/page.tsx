@@ -3,21 +3,9 @@ import { Role } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import LearnProgressClient from "@/features/courses/ui/LearnProgressClient";
+import { UnitEditor } from "@/features/courses/ui/UnitEditor";
+import { MarkdownContent } from "@/features/courses/ui/MarkdownContent";
 
-function unitTypeLabel(unitType: string) {
-  switch (unitType) {
-    case "MATERIAL":
-      return "Материал";
-    case "VIDEO":
-      return "Видео";
-    case "TEST":
-      return "Тест";
-    case "LIVE":
-      return "Live-урок";
-    default:
-      return unitType;
-  }
-}
 
 function parseYouTubeId(rawUrl: string): string | null {
   try {
@@ -75,6 +63,9 @@ export default async function LearnUnitPage({
         },
       },
       material: true,
+      attachments: {
+        orderBy: { createdAt: "asc" },
+      },
       tests: {
         include: {
           questions: {
@@ -164,76 +155,97 @@ export default async function LearnUnitPage({
           <header className="skillhub-panel rounded-[1.75rem] p-6">
             <p className="skillhub-kicker text-xs font-medium">Урок</p>
             <h1 className="mt-2 text-2xl font-semibold text-black">{unit.title}</h1>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="skillhub-chip rounded-full px-3 py-1 text-xs font-medium">
-                {unitTypeLabel(unit.unitType)}
-              </span>
-              {unit.tests.length ? (
-                <span className="rounded-full border border-black/10 bg-[var(--surface-muted)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
-                  Тестов: {unit.tests.length}
-                </span>
-              ) : null}
-            </div>
+            {(unit.unitType === "LIVE" || unit.tests.length > 0) ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {unit.unitType === "LIVE" ? (
+                  <span className="skillhub-chip rounded-full px-3 py-1 text-xs font-medium">
+                    Live-урок
+                  </span>
+                ) : null}
+                {unit.tests.length ? (
+                  <span className="rounded-full border border-black/10 bg-[var(--surface-muted)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
+                    Тестов: {unit.tests.length}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             {unit.description ? (
               <p className="mt-4 text-sm text-[var(--muted)]">{unit.description}</p>
             ) : null}
           </header>
 
+          {/* File attachments — shown BEFORE text content */}
+          {unit.attachments.some((a) => a.type === "FILE") ? (
+          <article className="skillhub-panel rounded-[1.75rem] p-6">
+            <h2 className="text-lg font-semibold text-black">Файлы для скачивания</h2>
+            <ul className="mt-3 space-y-2">
+              {unit.attachments
+                .filter((a) => a.type === "FILE")
+                .map((file) => (
+                  <li key={file.id}>
+                    <a
+                      href={file.url}
+                      download={file.name}
+                      className="flex items-center gap-3 rounded-2xl border border-black/10 bg-[var(--surface-muted)] px-4 py-3 hover:border-[var(--accent)]"
+                    >
+                      <svg className="h-5 w-5 shrink-0 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l5 5v14a2 2 0 01-2 2z" />
+                      </svg>
+                      <span className="flex-1 truncate text-sm font-medium text-black">{file.name}</span>
+                      <svg className="h-4 w-4 shrink-0 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </a>
+                  </li>
+                ))}
+            </ul>
+          </article>
+          ) : null}
+
+          {(unit.material?.content || videoUrl) ? (
           <article className="skillhub-panel rounded-[1.75rem] p-6">
             <h2 className="text-lg font-semibold text-black">Материалы урока</h2>
 
             {unit.material?.content ? (
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">
-                {unit.material.content}
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-[var(--muted)]">
-                Текстовый материал пока не заполнен.
-              </p>
-            )}
+              <MarkdownContent content={unit.material.content} />
+            ) : null}
 
-            <div className="mt-5 rounded-[1.5rem] border border-black/10 bg-[var(--surface-muted)] p-4">
-              <p className="mb-3 text-sm font-medium text-black">Видео урока</p>
+            {videoUrl ? (
+              <div className={`rounded-[1.5rem] border border-black/10 bg-[var(--surface-muted)] p-4 ${unit.material?.content ? "mt-5" : "mt-3"}`}>
+                <p className="mb-3 text-sm font-medium text-black">Видео урока</p>
 
-              {!videoUrl ? (
-                <p className="text-sm text-[var(--muted)]">
-                  Видео для этого урока пока не добавлено.
-                </p>
-              ) : null}
-
-              {youtubeEmbedUrl ? (
-                <div className="overflow-hidden rounded-2xl border border-black/10 bg-black">
-                  <div className="relative w-full pt-[56.25%]">
-                    <iframe
-                      src={youtubeEmbedUrl}
-                      title={`Видео: ${unit.title}`}
-                      className="absolute left-0 top-0 h-full w-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      allowFullScreen
-                    />
+                {youtubeEmbedUrl ? (
+                  <div className="overflow-hidden rounded-2xl border border-black/10 bg-black">
+                    <div className="relative w-full pt-[56.25%]">
+                      <iframe
+                        src={youtubeEmbedUrl}
+                        title={`Видео: ${unit.title}`}
+                        className="absolute left-0 top-0 h-full w-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                      />
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null}
 
-              {showHtml5Video ? (
-                <div className="space-y-3">
-                  <video
-                    className="w-full overflow-hidden rounded-2xl border border-black/10 bg-black"
-                    src={videoUrl}
-                    controls
-                    preload="metadata"
-                  />
-                  {hintVideoFormat ? (
-                    <p className="text-xs text-[var(--muted)]">
-                      Если видео не воспроизводится во встроенном плеере, откройте
-                      его по прямой ссылке ниже.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
+                {showHtml5Video ? (
+                  <div className="space-y-3">
+                    <video
+                      className="w-full overflow-hidden rounded-2xl border border-black/10 bg-black"
+                      src={videoUrl}
+                      controls
+                      preload="metadata"
+                    />
+                    {hintVideoFormat ? (
+                      <p className="text-xs text-[var(--muted)]">
+                        Если видео не воспроизводится во встроенном плеере, откройте
+                        его по прямой ссылке ниже.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
-              {videoUrl ? (
                 <a
                   href={videoUrl}
                   target="_blank"
@@ -242,10 +254,12 @@ export default async function LearnUnitPage({
                 >
                   Открыть видео в новой вкладке
                 </a>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </article>
+          ) : null}
 
+          {unit.tests.length > 0 ? (
           <article className="skillhub-panel rounded-[1.75rem] p-6">
             <h2 className="text-lg font-semibold text-black">Тесты</h2>
             <div className="mt-3 space-y-2">
@@ -263,11 +277,9 @@ export default async function LearnUnitPage({
                   </p>
                 </Link>
               ))}
-              {!unit.tests.length ? (
-                <p className="text-sm text-[var(--muted)]">Тесты пока не добавлены.</p>
-              ) : null}
             </div>
           </article>
+          ) : null}
 
           {unit.lesson ? (
             <article className="skillhub-panel rounded-[1.75rem] p-6">
@@ -285,13 +297,13 @@ export default async function LearnUnitPage({
           ) : null}
 
           {canManage ? (
-            <article className="skillhub-panel rounded-[1.75rem] p-6">
-              <h2 className="text-lg font-semibold text-black">Преподавателю</h2>
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                Вы можете обновлять контент урока через API и добавлять тесты в
-                этот юнит из панели курса.
-              </p>
-            </article>
+            <UnitEditor
+              unitId={unit.id}
+              initialTitle={unit.title}
+              initialDescription={unit.description ?? null}
+              initialContent={unit.material?.content ?? null}
+              initialVideoUrl={unit.material?.videoUrl ?? null}
+            />
           ) : null}
         </div>
 

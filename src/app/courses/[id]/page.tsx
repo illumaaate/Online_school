@@ -4,21 +4,8 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CourseActions } from "@/features/courses/ui/CourseActions";
 import { CourseProgramSidebar } from "@/features/courses/ui/CourseProgramSidebar";
+import { CourseProgressBar } from "@/features/courses/ui/CourseProgressBar";
 
-function unitTypeLabel(unitType: string) {
-  switch (unitType) {
-    case "MATERIAL":
-      return "Материал";
-    case "VIDEO":
-      return "Видео";
-    case "TEST":
-      return "Тест";
-    case "LIVE":
-      return "Live";
-    default:
-      return unitType;
-  }
-}
 
 export default async function CourseDetailsPage({
   params,
@@ -158,7 +145,32 @@ export default async function CourseDetailsPage({
         </div>
       </div>
 
-      <CourseActions courseId={course.id} canManage={canManage} />
+      {isEnrolled && (
+        <CourseProgressBar
+          courseId={course.id}
+          modules={course.modules.map((m) => ({
+            id: m.id,
+            title: m.title,
+            units: m.units.map((u) => ({ id: u.id, title: u.title })),
+          }))}
+        />
+      )}
+
+      {canManage && (
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/courses/${course.id}/stats`}
+            className="flex items-center gap-2 rounded-2xl border border-black/10 bg-[var(--surface-muted)] px-4 py-2.5 text-sm font-medium text-black hover:border-[var(--accent)]"
+          >
+            <svg className="h-4 w-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Статистика курса
+          </Link>
+        </div>
+      )}
+
+      <CourseActions courseId={course.id} canManage={canManage} isAdmin={user.role === Role.ADMIN} />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
@@ -196,9 +208,11 @@ export default async function CourseDetailsPage({
                       >
                         {unit.title}
                       </Link>
-                      <span className="rounded-md border border-black/10 px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">
-                        {unitTypeLabel(unit.unitType)}
-                      </span>
+                      {unit.unitType === "LIVE" ? (
+                        <span className="shrink-0 rounded-md border border-black/10 px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+                          Live
+                        </span>
+                      ) : null}
                     </div>
 
                     {unit.tests.length ? (
