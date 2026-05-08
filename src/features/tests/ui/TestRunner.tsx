@@ -6,7 +6,7 @@ import { markUnitCompleted } from "@/features/courses/lib/progress";
 type Question = {
   id: string;
   question: string;
-  type: "SINGLE" | "MULTI" | "OPEN";
+  type: "SINGLE" | "MULTI" | "OPEN" | "NUMBER";
   points: number;
   options: Array<{ id: string; text: string }>;
 };
@@ -160,6 +160,14 @@ export function TestRunner({
               value={answers[question.id]?.textAnswer ?? ""}
               onChange={(e) => setOpenAnswer(question.id, e.target.value)}
               placeholder="Введите развернутый ответ"
+            />
+          ) : question.type === "NUMBER" ? (
+            <input
+              type="number"
+              className="mt-2 w-full rounded-lg border border-zinc-300 p-2"
+              value={answers[question.id]?.textAnswer ?? ""}
+              onChange={(e) => setOpenAnswer(question.id, e.target.value)}
+              placeholder="Введите число"
             />
           ) : (
             <div className="mt-2 space-y-2">

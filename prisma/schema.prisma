@@ -24,6 +24,7 @@ enum TestQuestionType {
   SINGLE
   MULTI
   OPEN
+  NUMBER
 }
 
 enum CallStatus {

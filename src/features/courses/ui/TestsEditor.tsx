@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-type QuestionType = "SINGLE" | "MULTI" | "OPEN";
+type QuestionType = "SINGLE" | "MULTI" | "OPEN" | "NUMBER";
 
 interface TestOption {
   id: string;
@@ -77,8 +77,8 @@ function QuestionEditor({
           question: text.trim(),
           type,
           points,
-          correctText: type === "OPEN" ? correctText.trim() || null : null,
-          options: type !== "OPEN" ? options.filter((o) => o.text.trim()) : [],
+          correctText: type === "OPEN" || type === "NUMBER" ? correctText.trim() || null : null,
+          options: type !== "OPEN" && type !== "NUMBER" ? options.filter((o) => o.text.trim()) : [],
         }),
       });
       if (res.ok) {
@@ -104,7 +104,7 @@ function QuestionEditor({
         className="flex w-full items-start gap-3 px-4 py-3 text-left"
       >
         <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[10px] font-bold text-[var(--accent-strong)]">
-          {question.type === "OPEN" ? "?" : question.type === "MULTI" ? "M" : "•"}
+          {question.type === "OPEN" ? "?" : question.type === "MULTI" ? "M" : question.type === "NUMBER" ? "#" : "•"}
         </span>
         <span className="flex-1 truncate text-sm font-medium text-black">
           {question.question || "Без текста"}
@@ -133,6 +133,7 @@ function QuestionEditor({
               <option value="SINGLE">Один ответ</option>
               <option value="MULTI">Несколько ответов</option>
               <option value="OPEN">Открытый ответ</option>
+              <option value="NUMBER">Число</option>
             </select>
             <input
               type="number"
@@ -145,10 +146,10 @@ function QuestionEditor({
             />
           </div>
 
-          {type === "OPEN" ? (
+          {type === "OPEN" || type === "NUMBER" ? (
             <div className="space-y-1">
-              <p className="text-xs text-[var(--muted)]">Правильный ответ (для автопроверки)</p>
-              <input className={fieldClass} value={correctText} onChange={(e) => setCorrectText(e.target.value)} placeholder="Ожидаемый ответ..." />
+              <p className="text-xs text-[var(--muted)]">{type === "NUMBER" ? "Правильный ответ (число)" : "Правильный ответ (для автопроверки)"}</p>
+              <input className={fieldClass} type={type === "NUMBER" ? "number" : "text"} value={correctText} onChange={(e) => setCorrectText(e.target.value)} placeholder={type === "NUMBER" ? "Введите правильное число" : "Ожидаемый ответ..."} />
             </div>
           ) : (
             <div className="space-y-2">
@@ -225,7 +226,7 @@ function TestItem({
   const [questions, setQuestions] = useState<TestQuestion[]>(test.questions);
   const [saving, setSaving] = useState(false);
   const [addingQ, setAddingQ] = useState(false);
-  const [newQ, setNewQ] = useState({ text: "", type: "SINGLE" as QuestionType, points: 1 });
+  const [newQ, setNewQ] = useState({ text: "", type: "SINGLE" as QuestionType, points: 1, correctText: "" });
   const [newQOptions, setNewQOptions] = useState<Array<{ text: string; isCorrect: boolean }>>([]);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -262,13 +263,14 @@ function TestItem({
           question: newQ.text.trim(),
           type: newQ.type,
           points: newQ.points,
-          options: newQ.type !== "OPEN" ? newQOptions.filter((o) => o.text.trim()) : undefined,
+          correctText: newQ.type === "NUMBER" || newQ.type === "OPEN" ? newQ.correctText?.trim() || undefined : undefined,
+          options: newQ.type !== "OPEN" && newQ.type !== "NUMBER" ? newQOptions.filter((o) => o.text.trim()) : undefined,
         }),
       });
       if (res.ok) {
         const q = (await res.json()) as TestQuestion;
         setQuestions((prev) => [...prev, q]);
-        setNewQ({ text: "", type: "SINGLE", points: 1 });
+        setNewQ({ text: "", type: "SINGLE", points: 1, correctText: "" });
         setNewQOptions([]);
       }
     } finally {
@@ -344,6 +346,7 @@ function TestItem({
                 <option value="SINGLE">Один ответ</option>
                 <option value="MULTI">Несколько ответов</option>
                 <option value="OPEN">Открытый ответ</option>
+                <option value="NUMBER">Число</option>
               </select>
               <input
                 type="number" min={1} max={100}
@@ -354,7 +357,20 @@ function TestItem({
               />
             </div>
 
-            {newQ.type !== "OPEN" && (
+            {(newQ.type === "OPEN" || newQ.type === "NUMBER") && (
+              <div className="space-y-1">
+                <p className="text-xs text-[var(--muted)]">{newQ.type === "NUMBER" ? "Правильный ответ (число)" : "Правильный ответ (для автопроверки)"}</p>
+                <input
+                  className={fieldClass}
+                  type={newQ.type === "NUMBER" ? "number" : "text"}
+                  value={newQ.correctText}
+                  onChange={(e) => setNewQ((p) => ({ ...p, correctText: e.target.value }))}
+                  placeholder={newQ.type === "NUMBER" ? "Введите правильное число" : "Ожидаемый ответ..."}
+                />
+              </div>
+            )}
+
+            {newQ.type !== "OPEN" && newQ.type !== "NUMBER" && (
               <div className="space-y-2">
                 <p className="text-xs text-[var(--muted)]">Варианты ответа — отметьте правильные</p>
                 {newQOptions.map((opt, i) => (

@@ -4,6 +4,7 @@ import { Role } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { hashPassword, setSession } from "@/lib/auth";
+import { verifyCaptcha } from "@/lib/captcha";
 
 const registerSchema = z.object({
   name: z
@@ -29,6 +30,18 @@ export async function POST(request: Request) {
     const rawBody = await request.json().catch(() => null);
     if (!rawBody || typeof rawBody !== "object") {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const captchaToken = (rawBody as Record<string, unknown>).captchaToken;
+    if (
+      !captchaToken ||
+      typeof captchaToken !== "string" ||
+      !(await verifyCaptcha(captchaToken))
+    ) {
+      return NextResponse.json(
+        { error: "Captcha verification failed" },
+        { status: 400 },
+      );
     }
 
     const parsed = registerSchema.safeParse(rawBody);

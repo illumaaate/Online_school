@@ -47,6 +47,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       } else {
         isCorrect = null;
       }
+    } else if (question.type === "NUMBER") {
+      if (question.correctText && submitted.textAnswer) {
+        const expected = parseFloat(question.correctText.trim());
+        const given = parseFloat(submitted.textAnswer.trim());
+        isCorrect = !isNaN(expected) && !isNaN(given) && expected === given;
+      } else {
+        isCorrect = false;
+      }
+      answerScore = isCorrect ? question.points : 0;
     } else {
       const correctOptionIds = question.options.filter((option) => option.isCorrect).map((option) => option.id).sort();
       const selected = [...(submitted.selectedOptionIds ?? [])].sort();

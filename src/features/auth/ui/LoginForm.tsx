@@ -1,27 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
+
+const HCAPTCHA_SITEKEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY!;
 
 export function LoginForm() {
   const router = useRouter();
+  const captchaRef = useRef<HCaptcha>(null);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!captchaToken) {
+      setError("Пожалуйста, пройдите проверку капчи");
+      return;
+    }
     setLoading(true);
     setError("");
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, captchaToken }),
     });
     setLoading(false);
 
     if (!res.ok) {
+      captchaRef.current?.resetCaptcha();
+      setCaptchaToken("");
       const data = (await res.json()) as { error?: string };
       setError(data.error ?? "Не удалось выполнить вход");
       return;
@@ -54,9 +66,17 @@ export function LoginForm() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+
+      <HCaptcha
+        sitekey={HCAPTCHA_SITEKEY}
+        onVerify={(token) => setCaptchaToken(token)}
+        onExpire={() => setCaptchaToken("")}
+        ref={captchaRef}
+      />
+
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button
-        disabled={loading}
+        disabled={loading || !captchaToken}
         className="skillhub-button-primary w-full rounded-2xl px-4 py-3 font-medium disabled:opacity-60"
       >
         {loading ? "Выполняем вход..." : "Войти"}

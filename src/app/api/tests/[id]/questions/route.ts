@@ -34,7 +34,7 @@ export async function POST(
 
   const body = (await request.json()) as {
     question: string;
-    type?: "SINGLE" | "MULTI" | "OPEN";
+    type?: "SINGLE" | "MULTI" | "OPEN" | "NUMBER";
     points?: number;
     correctText?: string;
     options?: Array<{ text: string; isCorrect?: boolean }>;
