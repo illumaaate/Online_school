@@ -168,14 +168,19 @@ model LessonRoom {
 }
 
 model CourseModule {
-  id        String      @id @default(cuid())
+  id        String         @id @default(cuid())
   courseId  String
   title     String
-  position  Int         @default(0)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  course    Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  position  Int            @default(0)
+  parentId  String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  parent    CourseModule?  @relation("CourseModuleTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  CourseModule[] @relation("CourseModuleTree")
   units     LessonUnit[]
+
+  @@index([courseId, parentId])
 }
 
 model LessonUnit {

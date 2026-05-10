@@ -9,22 +9,40 @@ type UnitItem = {
   title: string;
 };
 
-type ModuleItem = {
+export type CourseProgressModuleItem = {
   id: string;
   title: string;
   units: UnitItem[];
+  children?: CourseProgressModuleItem[];
 };
+
+type ModuleItem = CourseProgressModuleItem;
+
+/*
+type __obsolete_ModuleItem_block_removed__ = never;
+*/
 
 interface Props {
   courseId: string;
   modules: ModuleItem[];
 }
 
+function collectUnits(modules: ModuleItem[]): UnitItem[] {
+  const units: UnitItem[] = [];
+
+  const walk = (items: ModuleItem[]) => {
+    for (const item of items) {
+      units.push(...item.units);
+      if (item.children?.length) walk(item.children);
+    }
+  };
+
+  walk(modules);
+  return units;
+}
+
 export function CourseProgressBar({ courseId, modules }: Props) {
-  const allUnits = useMemo(
-    () => modules.flatMap((m) => m.units),
-    [modules],
-  );
+  const allUnits = useMemo(() => collectUnits(modules), [modules]);
   const allUnitIds = useMemo(() => allUnits.map((u) => u.id), [allUnits]);
 
   const { progressPercent, completedUnits, totalUnits, isCompleted } =
@@ -76,10 +94,22 @@ export function CourseProgressBar({ courseId, modules }: Props) {
         <div className="shrink-0">
           {allDone ? (
             <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5">
-              <svg className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              <svg
+                className="h-4 w-4 text-emerald-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
-              <span className="text-sm font-semibold text-emerald-700">Всё пройдено</span>
+              <span className="text-sm font-semibold text-emerald-700">
+                Всё пройдено
+              </span>
             </div>
           ) : nextUnit ? (
             <Link
@@ -87,8 +117,18 @@ export function CourseProgressBar({ courseId, modules }: Props) {
               className="flex items-center gap-2 rounded-2xl bg-black px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black/80"
             >
               {completedUnits === 0 ? "Начать курс" : "Продолжить"}
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </Link>
           ) : null}

@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LoginForm } from "@/features/auth/ui/LoginForm";
+import { getSessionUser } from "@/lib/auth";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const user = await getSessionUser();
+  if (user) redirect("/dashboard");
   return (
     <section className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[0.95fr_1.05fr]">
       <div className="skillhub-hero rounded-[2rem] p-8 md:p-10">

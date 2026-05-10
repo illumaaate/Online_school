@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { markUnitCompleted } from "@/features/courses/lib/progress";
+import { MarkdownContent } from "@/features/courses/ui/MarkdownContent";
 
 type Question = {
   id: string;
@@ -147,9 +148,12 @@ export function TestRunner({
           key={question.id}
           className="rounded-xl border border-zinc-200 bg-white p-4"
         >
-          <p className="font-medium">
-            {idx + 1}. {question.question}
-          </p>
+          <div className="font-medium text-black">
+            <span className="mr-1">{idx + 1}.</span>
+            <div className="inline-block align-top max-w-full">
+              <MarkdownContent content={question.question} />
+            </div>
+          </div>
           <p className="text-xs text-zinc-500">
             Тип: {question.type} | Баллы: {question.points}
           </p>

@@ -12,6 +12,14 @@ const privatePrefixes = [
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Normalize trailing slash without browser redirect to avoid proxy-induced loops.
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    const normalized = request.nextUrl.clone();
+    normalized.pathname = pathname.slice(0, -1);
+    return NextResponse.rewrite(normalized);
+  }
+
   const isPrivate = privatePrefixes.some((prefix) =>
     pathname.startsWith(prefix),
   );
@@ -28,13 +36,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/courses/:path*",
-    "/lesson/:path*",
-    "/calls/:path*",
-    "/learn/:path*",
-    "/tests/:path*",
-    "/join/:path*",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

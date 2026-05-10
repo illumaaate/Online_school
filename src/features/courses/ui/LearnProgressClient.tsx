@@ -21,8 +21,22 @@ type LearnProgressClientProps = {
   className?: string;
 };
 
+function collectUnitIds(modules: ProgramModuleItem[]): string[] {
+  const ids: string[] = [];
+
+  const walk = (items: ProgramModuleItem[]) => {
+    for (const item of items) {
+      ids.push(...item.units.map((unit) => unit.id));
+      if (item.children?.length) walk(item.children);
+    }
+  };
+
+  walk(modules);
+  return ids;
+}
+
 function getNextUnitId(modules: ProgramModuleItem[], activeUnitId: string) {
-  const unitIds = modules.flatMap((module) => module.units.map((unit) => unit.id));
+  const unitIds = collectUnitIds(modules);
   const index = unitIds.findIndex((id) => id === activeUnitId);
   if (index < 0 || index >= unitIds.length - 1) return null;
   return unitIds[index + 1];
@@ -38,21 +52,23 @@ export default function LearnProgressClient({
   const router = useRouter();
   const [notice, setNotice] = useState("");
 
-  const allUnitIds = useMemo(
-    () => modules.flatMap((module) => module.units.map((unit) => unit.id)),
-    [modules],
-  );
+  const allUnitIds = useMemo(() => collectUnitIds(modules), [modules]);
 
   const nextUnitId = useMemo(
     () => getNextUnitId(modules, activeUnitId),
     [modules, activeUnitId],
   );
 
-  const { progressPercent: courseProgressPercent, completedUnits, totalUnits } =
-    useCourseProgress(courseId, allUnitIds);
+  const {
+    progressPercent: courseProgressPercent,
+    completedUnits,
+    totalUnits,
+  } = useCourseProgress(courseId, allUnitIds);
 
-  const { completed, markVisited, markCompleted, setPercent } =
-    useUnitProgress(courseId, activeUnitId);
+  const { completed, markVisited, markCompleted, setPercent } = useUnitProgress(
+    courseId,
+    activeUnitId,
+  );
 
   // One-time bulk sync: push all localStorage progress for this course to DB
   useEffect(() => {
@@ -74,7 +90,7 @@ export default function LearnProgressClient({
         }),
       }).catch(() => null);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
 
   // Mark as visited when opening
@@ -111,7 +127,9 @@ export default function LearnProgressClient({
         <div className="mt-3 space-y-1.5">
           <div className="flex items-center justify-between text-xs text-[var(--muted)]">
             <span>Прогресс курса</span>
-            <span className="font-medium text-black">{courseProgressPercent}%</span>
+            <span className="font-medium text-black">
+              {courseProgressPercent}%
+            </span>
           </div>
           <div className="h-2 w-full rounded-full bg-black/8">
             <div
@@ -128,13 +146,28 @@ export default function LearnProgressClient({
         <div className="mt-4 space-y-2">
           {completed ? (
             <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-              <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              <svg
+                className="h-4 w-4 shrink-0 text-emerald-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
-              <span className="text-sm font-medium text-emerald-700">Занятие пройдено</span>
+              <span className="text-sm font-medium text-emerald-700">
+                Занятие пройдено
+              </span>
               <button
                 type="button"
-                onClick={() => { setPercent(0); showNotice("Прогресс сброшен"); }}
+                onClick={() => {
+                  setPercent(0);
+                  showNotice("Прогресс сброшен");
+                }}
                 className="ml-auto text-xs text-emerald-600 hover:underline"
               >
                 Сбросить

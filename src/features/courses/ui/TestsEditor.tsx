@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 
 type QuestionType = "SINGLE" | "MULTI" | "OPEN" | "NUMBER";
 
@@ -44,11 +50,14 @@ function QuestionEditor({
   const [type, setType] = useState<QuestionType>(question.type);
   const [points, setPoints] = useState(question.points);
   const [correctText, setCorrectText] = useState(question.correctText ?? "");
-  const [options, setOptions] = useState<Array<{ text: string; isCorrect: boolean }>>(
-    question.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
-  );
+  const [options, setOptions] = useState<
+    Array<{ text: string; isCorrect: boolean }>
+  >(question.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })));
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   function addOption() {
     setOptions((prev) => [...prev, { text: "", isCorrect: false }]);
@@ -67,6 +76,45 @@ function QuestionEditor({
     );
   }
 
+  async function uploadImage(file: File): Promise<string | null> {
+    const form = new FormData();
+    form.append("file", file);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: form,
+    });
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      setUploadError(err.error ?? "Не удалось загрузить изображение");
+      return null;
+    }
+
+    const data = (await res.json()) as { url: string };
+    return data.url;
+  }
+
+  async function handleImageChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+    setUploadingImage(true);
+    try {
+      const url = await uploadImage(file);
+      if (url) {
+        setText(
+          (prev) =>
+            `${prev}${prev.trim() ? "\n\n" : ""}![Изображение задания](${url})`,
+        );
+      }
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -77,8 +125,14 @@ function QuestionEditor({
           question: text.trim(),
           type,
           points,
-          correctText: type === "OPEN" || type === "NUMBER" ? correctText.trim() || null : null,
-          options: type !== "OPEN" && type !== "NUMBER" ? options.filter((o) => o.text.trim()) : [],
+          correctText:
+            type === "OPEN" || type === "NUMBER"
+              ? correctText.trim() || null
+              : null,
+          options:
+            type !== "OPEN" && type !== "NUMBER"
+              ? options.filter((o) => o.text.trim())
+              : [],
         }),
       });
       if (res.ok) {
@@ -92,7 +146,9 @@ function QuestionEditor({
   }
 
   async function del() {
-    const res = await fetch(`/api/questions/${question.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/questions/${question.id}`, {
+      method: "DELETE",
+    });
     if (res.ok) onDeleted(question.id);
   }
 
@@ -104,32 +160,72 @@ function QuestionEditor({
         className="flex w-full items-start gap-3 px-4 py-3 text-left"
       >
         <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[10px] font-bold text-[var(--accent-strong)]">
-          {question.type === "OPEN" ? "?" : question.type === "MULTI" ? "M" : question.type === "NUMBER" ? "#" : "•"}
+          {question.type === "OPEN"
+            ? "?"
+            : question.type === "MULTI"
+              ? "M"
+              : question.type === "NUMBER"
+                ? "#"
+                : "•"}
         </span>
         <span className="flex-1 truncate text-sm font-medium text-black">
           {question.question || "Без текста"}
         </span>
-        <span className="shrink-0 text-xs text-[var(--muted)]">{question.points} б.</span>
+        <span className="shrink-0 text-xs text-[var(--muted)]">
+          {question.points} б.
+        </span>
         <svg
           className={`h-4 w-4 shrink-0 text-[var(--muted)] transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
 
       {open && (
         <div className="border-t border-black/10 px-4 pb-4 pt-3 space-y-3">
-          <textarea
-            className={`${fieldClass} resize-none`}
-            rows={2}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Текст вопроса"
-          />
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-[var(--muted)]">
+                Текст вопроса (поддерживается Markdown)
+              </p>
+              <label className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-black/10 px-2.5 py-1 text-xs text-[var(--muted)] hover:border-[var(--accent)] hover:text-black">
+                {uploadingImage ? "Загрузка..." : "Вставить картинку"}
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingImage}
+                  onChange={handleImageChange}
+                />
+              </label>
+            </div>
+            <textarea
+              className={`${fieldClass} resize-none`}
+              rows={3}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Текст вопроса"
+            />
+            {uploadError ? (
+              <p className="text-xs text-red-600">{uploadError}</p>
+            ) : null}
+          </div>
 
           <div className="flex gap-2">
-            <select className={`${fieldClass} flex-1`} value={type} onChange={(e) => setType(e.target.value as QuestionType)}>
+            <select
+              className={`${fieldClass} flex-1`}
+              value={type}
+              onChange={(e) => setType(e.target.value as QuestionType)}
+            >
               <option value="SINGLE">Один ответ</option>
               <option value="MULTI">Несколько ответов</option>
               <option value="OPEN">Открытый ответ</option>
@@ -148,41 +244,93 @@ function QuestionEditor({
 
           {type === "OPEN" || type === "NUMBER" ? (
             <div className="space-y-1">
-              <p className="text-xs text-[var(--muted)]">{type === "NUMBER" ? "Правильный ответ (число)" : "Правильный ответ (для автопроверки)"}</p>
-              <input className={fieldClass} type={type === "NUMBER" ? "number" : "text"} value={correctText} onChange={(e) => setCorrectText(e.target.value)} placeholder={type === "NUMBER" ? "Введите правильное число" : "Ожидаемый ответ..."} />
+              <p className="text-xs text-[var(--muted)]">
+                {type === "NUMBER"
+                  ? "Правильный ответ (число)"
+                  : "Правильный ответ (для автопроверки)"}
+              </p>
+              <input
+                className={fieldClass}
+                type={type === "NUMBER" ? "number" : "text"}
+                value={correctText}
+                onChange={(e) => setCorrectText(e.target.value)}
+                placeholder={
+                  type === "NUMBER"
+                    ? "Введите правильное число"
+                    : "Ожидаемый ответ..."
+                }
+              />
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs text-[var(--muted)]">Варианты ответа — отметьте правильные</p>
+              <p className="text-xs text-[var(--muted)]">
+                Варианты ответа — отметьте правильные
+              </p>
               {options.map((opt, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => toggleCorrect(i)}
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                      opt.isCorrect ? "border-green-500 bg-green-500 text-white" : "border-black/20 bg-white"
+                      opt.isCorrect
+                        ? "border-green-500 bg-green-500 text-white"
+                        : "border-black/20 bg-white"
                     }`}
                   >
                     {opt.isCorrect && (
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
                       </svg>
                     )}
                   </button>
                   <input
                     className="flex-1 rounded-xl border border-black/10 bg-[var(--surface-muted)] px-3 py-1.5 text-sm focus:border-[var(--accent)] focus:outline-none"
                     value={opt.text}
-                    onChange={(e) => setOptions((prev) => prev.map((o, idx) => idx === i ? { ...o, text: e.target.value } : o))}
+                    onChange={(e) =>
+                      setOptions((prev) =>
+                        prev.map((o, idx) =>
+                          idx === i ? { ...o, text: e.target.value } : o,
+                        ),
+                      )
+                    }
                     placeholder={`Вариант ${i + 1}`}
                   />
-                  <button type="button" onClick={() => removeOption(i)} className="shrink-0 text-red-400 hover:text-red-600">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  <button
+                    type="button"
+                    onClick={() => removeOption(i)}
+                    className="shrink-0 text-red-400 hover:text-red-600"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
               ))}
-              <button type="button" onClick={addOption} className="text-xs text-[var(--accent-strong)] hover:underline">
+              <button
+                type="button"
+                onClick={addOption}
+                className="text-xs text-[var(--accent-strong)] hover:underline"
+              >
                 + Добавить вариант
               </button>
             </div>
@@ -226,9 +374,19 @@ function TestItem({
   const [questions, setQuestions] = useState<TestQuestion[]>(test.questions);
   const [saving, setSaving] = useState(false);
   const [addingQ, setAddingQ] = useState(false);
-  const [newQ, setNewQ] = useState({ text: "", type: "SINGLE" as QuestionType, points: 1, correctText: "" });
-  const [newQOptions, setNewQOptions] = useState<Array<{ text: string; isCorrect: boolean }>>([]);
+  const [newQ, setNewQ] = useState({
+    text: "",
+    type: "SINGLE" as QuestionType,
+    points: 1,
+    correctText: "",
+  });
+  const [newQOptions, setNewQOptions] = useState<
+    Array<{ text: string; isCorrect: boolean }>
+  >([]);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [uploadingNewImage, setUploadingNewImage] = useState(false);
+  const [newImageError, setNewImageError] = useState<string | null>(null);
+  const newImageInputRef = useRef<HTMLInputElement>(null);
 
   async function saveTest() {
     setSaving(true);
@@ -236,7 +394,10 @@ function TestItem({
       const res = await fetch(`/api/tests/${test.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), description: description.trim() || null }),
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim() || null,
+        }),
       });
       if (res.ok) {
         const updated = (await res.json()) as Test;
@@ -252,6 +413,45 @@ function TestItem({
     if (res.ok) onDeleted(test.id);
   }
 
+  async function uploadImage(file: File): Promise<string | null> {
+    const form = new FormData();
+    form.append("file", file);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: form,
+    });
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      setNewImageError(err.error ?? "Не удалось загрузить изображение");
+      return null;
+    }
+
+    const data = (await res.json()) as { url: string };
+    return data.url;
+  }
+
+  async function handleNewImageChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setNewImageError(null);
+    setUploadingNewImage(true);
+    try {
+      const url = await uploadImage(file);
+      if (url) {
+        setNewQ((prev) => ({
+          ...prev,
+          text: `${prev.text}${prev.text.trim() ? "\n\n" : ""}![Изображение задания](${url})`,
+        }));
+      }
+    } finally {
+      setUploadingNewImage(false);
+      if (newImageInputRef.current) newImageInputRef.current.value = "";
+    }
+  }
+
   async function addQuestion() {
     if (!newQ.text.trim()) return;
     setAddingQ(true);
@@ -263,8 +463,14 @@ function TestItem({
           question: newQ.text.trim(),
           type: newQ.type,
           points: newQ.points,
-          correctText: newQ.type === "NUMBER" || newQ.type === "OPEN" ? newQ.correctText?.trim() || undefined : undefined,
-          options: newQ.type !== "OPEN" && newQ.type !== "NUMBER" ? newQOptions.filter((o) => o.text.trim()) : undefined,
+          correctText:
+            newQ.type === "NUMBER" || newQ.type === "OPEN"
+              ? newQ.correctText?.trim() || undefined
+              : undefined,
+          options:
+            newQ.type !== "OPEN" && newQ.type !== "NUMBER"
+              ? newQOptions.filter((o) => o.text.trim())
+              : undefined,
         }),
       });
       if (res.ok) {
@@ -287,13 +493,22 @@ function TestItem({
       >
         <div>
           <p className="text-sm font-semibold text-black">{test.title}</p>
-          <p className="text-xs text-[var(--muted)]">{questions.length} вопр.</p>
+          <p className="text-xs text-[var(--muted)]">
+            {questions.length} вопр.
+          </p>
         </div>
         <svg
           className={`h-4 w-4 text-[var(--muted)] transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
 
@@ -301,9 +516,24 @@ function TestItem({
         <div className="border-t border-black/10 px-4 pb-4 pt-3 space-y-4">
           {/* Title / description */}
           <div className="space-y-2">
-            <input className={fieldClass} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Название теста" />
-            <input className={fieldClass} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание (необязательно)" />
-            <button type="button" onClick={saveTest} disabled={saving} className="skillhub-button-outline rounded-xl px-4 py-2 text-xs disabled:opacity-60">
+            <input
+              className={fieldClass}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Название теста"
+            />
+            <input
+              className={fieldClass}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Описание (необязательно)"
+            />
+            <button
+              type="button"
+              onClick={saveTest}
+              disabled={saving}
+              className="skillhub-button-outline rounded-xl px-4 py-2 text-xs disabled:opacity-60"
+            >
               {saving ? "Сохранение..." : "Сохранить название"}
             </button>
           </div>
@@ -315,8 +545,14 @@ function TestItem({
               <QuestionEditor
                 key={q.id}
                 question={q}
-                onSaved={(updated) => setQuestions((prev) => prev.map((x) => x.id === updated.id ? updated : x))}
-                onDeleted={(id) => setQuestions((prev) => prev.filter((x) => x.id !== id))}
+                onSaved={(updated) =>
+                  setQuestions((prev) =>
+                    prev.map((x) => (x.id === updated.id ? updated : x)),
+                  )
+                }
+                onDeleted={(id) =>
+                  setQuestions((prev) => prev.filter((x) => x.id !== id))
+                }
               />
             ))}
             {questions.length === 0 && (
@@ -326,20 +562,48 @@ function TestItem({
 
           {/* Add question */}
           <div className="rounded-2xl border border-dashed border-black/15 p-3 space-y-2">
-            <p className="text-xs font-medium text-[var(--muted)]">Новый вопрос</p>
-            <textarea
-              className={`${fieldClass} resize-none`}
-              rows={2}
-              value={newQ.text}
-              onChange={(e) => setNewQ((p) => ({ ...p, text: e.target.value }))}
-              placeholder="Текст вопроса..."
-            />
+            <p className="text-xs font-medium text-[var(--muted)]">
+              Новый вопрос
+            </p>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-[var(--muted)]">
+                  Текст вопроса (поддерживается Markdown)
+                </p>
+                <label className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-black/10 px-2.5 py-1 text-xs text-[var(--muted)] hover:border-[var(--accent)] hover:text-black">
+                  {uploadingNewImage ? "Загрузка..." : "Вставить картинку"}
+                  <input
+                    ref={newImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingNewImage}
+                    onChange={handleNewImageChange}
+                  />
+                </label>
+              </div>
+              <textarea
+                className={`${fieldClass} resize-none`}
+                rows={3}
+                value={newQ.text}
+                onChange={(e) =>
+                  setNewQ((p) => ({ ...p, text: e.target.value }))
+                }
+                placeholder="Текст вопроса..."
+              />
+              {newImageError ? (
+                <p className="text-xs text-red-600">{newImageError}</p>
+              ) : null}
+            </div>
             <div className="flex gap-2">
               <select
                 className={`${fieldClass} flex-1`}
                 value={newQ.type}
                 onChange={(e) => {
-                  setNewQ((p) => ({ ...p, type: e.target.value as QuestionType }));
+                  setNewQ((p) => ({
+                    ...p,
+                    type: e.target.value as QuestionType,
+                  }));
                   setNewQOptions([]);
                 }}
               >
@@ -349,30 +613,46 @@ function TestItem({
                 <option value="NUMBER">Число</option>
               </select>
               <input
-                type="number" min={1} max={100}
+                type="number"
+                min={1}
+                max={100}
                 className="w-20 rounded-xl border border-black/10 bg-[var(--surface-muted)] px-3 py-2 text-sm focus:border-[var(--accent)] focus:outline-none"
                 value={newQ.points}
-                onChange={(e) => setNewQ((p) => ({ ...p, points: Number(e.target.value) }))}
+                onChange={(e) =>
+                  setNewQ((p) => ({ ...p, points: Number(e.target.value) }))
+                }
                 title="Баллы"
               />
             </div>
 
             {(newQ.type === "OPEN" || newQ.type === "NUMBER") && (
               <div className="space-y-1">
-                <p className="text-xs text-[var(--muted)]">{newQ.type === "NUMBER" ? "Правильный ответ (число)" : "Правильный ответ (для автопроверки)"}</p>
+                <p className="text-xs text-[var(--muted)]">
+                  {newQ.type === "NUMBER"
+                    ? "Правильный ответ (число)"
+                    : "Правильный ответ (для автопроверки)"}
+                </p>
                 <input
                   className={fieldClass}
                   type={newQ.type === "NUMBER" ? "number" : "text"}
                   value={newQ.correctText}
-                  onChange={(e) => setNewQ((p) => ({ ...p, correctText: e.target.value }))}
-                  placeholder={newQ.type === "NUMBER" ? "Введите правильное число" : "Ожидаемый ответ..."}
+                  onChange={(e) =>
+                    setNewQ((p) => ({ ...p, correctText: e.target.value }))
+                  }
+                  placeholder={
+                    newQ.type === "NUMBER"
+                      ? "Введите правильное число"
+                      : "Ожидаемый ответ..."
+                  }
                 />
               </div>
             )}
 
             {newQ.type !== "OPEN" && newQ.type !== "NUMBER" && (
               <div className="space-y-2">
-                <p className="text-xs text-[var(--muted)]">Варианты ответа — отметьте правильные</p>
+                <p className="text-xs text-[var(--muted)]">
+                  Варианты ответа — отметьте правильные
+                </p>
                 {newQOptions.map((opt, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <button
@@ -380,18 +660,33 @@ function TestItem({
                       onClick={() =>
                         setNewQOptions((prev) =>
                           prev.map((o, idx) => {
-                            if (newQ.type === "SINGLE") return { ...o, isCorrect: idx === i };
-                            return idx === i ? { ...o, isCorrect: !o.isCorrect } : o;
+                            if (newQ.type === "SINGLE")
+                              return { ...o, isCorrect: idx === i };
+                            return idx === i
+                              ? { ...o, isCorrect: !o.isCorrect }
+                              : o;
                           }),
                         )
                       }
                       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                        opt.isCorrect ? "border-green-500 bg-green-500 text-white" : "border-black/20 bg-white"
+                        opt.isCorrect
+                          ? "border-green-500 bg-green-500 text-white"
+                          : "border-black/20 bg-white"
                       }`}
                     >
                       {opt.isCorrect && (
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={3}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       )}
                     </button>
@@ -400,25 +695,46 @@ function TestItem({
                       value={opt.text}
                       onChange={(e) =>
                         setNewQOptions((prev) =>
-                          prev.map((o, idx) => (idx === i ? { ...o, text: e.target.value } : o)),
+                          prev.map((o, idx) =>
+                            idx === i ? { ...o, text: e.target.value } : o,
+                          ),
                         )
                       }
                       placeholder={`Вариант ${i + 1}`}
                     />
                     <button
                       type="button"
-                      onClick={() => setNewQOptions((prev) => prev.filter((_, idx) => idx !== i))}
+                      onClick={() =>
+                        setNewQOptions((prev) =>
+                          prev.filter((_, idx) => idx !== i),
+                        )
+                      }
                       className="shrink-0 text-red-400 hover:text-red-600"
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
                 ))}
                 <button
                   type="button"
-                  onClick={() => setNewQOptions((prev) => [...prev, { text: "", isCorrect: false }])}
+                  onClick={() =>
+                    setNewQOptions((prev) => [
+                      ...prev,
+                      { text: "", isCorrect: false },
+                    ])
+                  }
                   className="text-xs text-[var(--accent-strong)] hover:underline"
                 >
                   + Добавить вариант
@@ -439,14 +755,32 @@ function TestItem({
           {/* Delete test */}
           <div className="pt-1">
             {!confirmDel ? (
-              <button type="button" onClick={() => setConfirmDel(true)} className="text-xs text-red-500 hover:underline">
+              <button
+                type="button"
+                onClick={() => setConfirmDel(true)}
+                className="text-xs text-red-500 hover:underline"
+              >
                 Удалить тест
               </button>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-red-600">Удалить тест безвозвратно?</span>
-                <button type="button" onClick={deleteTest} className="rounded-xl bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600">Да</button>
-                <button type="button" onClick={() => setConfirmDel(false)} className="rounded-xl border border-black/10 px-3 py-1.5 text-xs text-[var(--muted)]">Нет</button>
+                <span className="text-xs text-red-600">
+                  Удалить тест безвозвратно?
+                </span>
+                <button
+                  type="button"
+                  onClick={deleteTest}
+                  className="rounded-xl bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600"
+                >
+                  Да
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDel(false)}
+                  className="rounded-xl border border-black/10 px-3 py-1.5 text-xs text-[var(--muted)]"
+                >
+                  Нет
+                </button>
               </div>
             )}
           </div>
@@ -472,7 +806,9 @@ export function TestsEditor({ unitId }: { unitId: string }) {
     }
   }, [unitId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function createTest() {
     if (!newTitle.trim()) return;
@@ -505,11 +841,19 @@ export function TestsEditor({ unitId }: { unitId: string }) {
             <TestItem
               key={t.id}
               test={t}
-              onDeleted={(id) => setTests((prev) => prev.filter((x) => x.id !== id))}
-              onUpdated={(updated) => setTests((prev) => prev.map((x) => x.id === updated.id ? updated : x))}
+              onDeleted={(id) =>
+                setTests((prev) => prev.filter((x) => x.id !== id))
+              }
+              onUpdated={(updated) =>
+                setTests((prev) =>
+                  prev.map((x) => (x.id === updated.id ? updated : x)),
+                )
+              }
             />
           ))}
-          {tests.length === 0 && <p className="text-xs text-[var(--muted)]">Тестов пока нет.</p>}
+          {tests.length === 0 && (
+            <p className="text-xs text-[var(--muted)]">Тестов пока нет.</p>
+          )}
         </div>
       )}
 
@@ -519,7 +863,9 @@ export function TestsEditor({ unitId }: { unitId: string }) {
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="Название нового теста..."
-          onKeyDown={(e) => { if (e.key === "Enter") void createTest(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void createTest();
+          }}
         />
         <button
           type="button"

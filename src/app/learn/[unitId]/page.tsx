@@ -5,7 +5,25 @@ import { db } from "@/lib/db";
 import LearnProgressClient from "@/features/courses/ui/LearnProgressClient";
 import { UnitEditor } from "@/features/courses/ui/UnitEditor";
 import { MarkdownContent } from "@/features/courses/ui/MarkdownContent";
+import type { ProgramModuleItem } from "@/features/courses/ui/CourseProgramSidebar";
+import {
+  getCourseModuleTree,
+  type CourseTreeModule,
+} from "@/features/courses/lib/courseTree";
 
+function mapTreeForSidebar(modules: CourseTreeModule[]): ProgramModuleItem[] {
+  return modules.map((module) => ({
+    id: module.id,
+    title: module.title,
+    units: module.units.map((item) => ({
+      id: item.id,
+      title: item.title,
+      unitType: item.unitType,
+      tests: item.tests.map((test) => ({ id: test.id, title: test.title })),
+    })),
+    children: mapTreeForSidebar(module.children),
+  }));
+}
 
 function parseYouTubeId(rawUrl: string): string | null {
   try {
@@ -18,7 +36,8 @@ function parseYouTubeId(rawUrl: string): string | null {
 
       const parts = url.pathname.split("/").filter(Boolean);
       const embedIndex = parts.findIndex((part) => part === "embed");
-      if (embedIndex >= 0 && parts[embedIndex + 1]) return parts[embedIndex + 1];
+      if (embedIndex >= 0 && parts[embedIndex + 1])
+        return parts[embedIndex + 1];
       if (parts[0] === "shorts" && parts[1]) return parts[1];
     }
 
@@ -89,37 +108,8 @@ export default async function LearnUnitPage({
     );
   }
 
-  const courseProgram = await db.course.findUnique({
-    where: { id: unit.module.course.id },
-    include: {
-      modules: {
-        orderBy: { position: "asc" },
-        include: {
-          units: {
-            orderBy: { position: "asc" },
-            include: {
-              tests: {
-                select: { id: true, title: true },
-                orderBy: { createdAt: "asc" },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  const sidebarModules =
-    courseProgram?.modules.map((module) => ({
-      id: module.id,
-      title: module.title,
-      units: module.units.map((item) => ({
-        id: item.id,
-        title: item.title,
-        unitType: item.unitType,
-        tests: item.tests.map((test) => ({ id: test.id, title: test.title })),
-      })),
-    })) ?? [];
+  const modulesTree = await getCourseModuleTree(unit.module.course.id);
+  const sidebarModules = mapTreeForSidebar(modulesTree);
 
   const canManage =
     user.role === Role.ADMIN || user.id === unit.module.course.teacherId;
@@ -154,8 +144,10 @@ export default async function LearnUnitPage({
         <div className="space-y-4">
           <header className="skillhub-panel rounded-[1.75rem] p-6">
             <p className="skillhub-kicker text-xs font-medium">Урок</p>
-            <h1 className="mt-2 text-2xl font-semibold text-black">{unit.title}</h1>
-            {(unit.unitType === "LIVE" || unit.tests.length > 0) ? (
+            <h1 className="mt-2 text-2xl font-semibold text-black">
+              {unit.title}
+            </h1>
+            {unit.unitType === "LIVE" || unit.tests.length > 0 ? (
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 {unit.unitType === "LIVE" ? (
                   <span className="skillhub-chip rounded-full px-3 py-1 text-xs font-medium">
@@ -170,115 +162,147 @@ export default async function LearnUnitPage({
               </div>
             ) : null}
             {unit.description ? (
-              <p className="mt-4 text-sm text-[var(--muted)]">{unit.description}</p>
+              <p className="mt-4 text-sm text-[var(--muted)]">
+                {unit.description}
+              </p>
             ) : null}
           </header>
 
           {/* File attachments — shown BEFORE text content */}
           {unit.attachments.some((a) => a.type === "FILE") ? (
-          <article className="skillhub-panel rounded-[1.75rem] p-6">
-            <h2 className="text-lg font-semibold text-black">Файлы для скачивания</h2>
-            <ul className="mt-3 space-y-2">
-              {unit.attachments
-                .filter((a) => a.type === "FILE")
-                .map((file) => (
-                  <li key={file.id}>
-                    <a
-                      href={file.url}
-                      download={file.name}
-                      className="flex items-center gap-3 rounded-2xl border border-black/10 bg-[var(--surface-muted)] px-4 py-3 hover:border-[var(--accent)]"
-                    >
-                      <svg className="h-5 w-5 shrink-0 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l5 5v14a2 2 0 01-2 2z" />
-                      </svg>
-                      <span className="flex-1 truncate text-sm font-medium text-black">{file.name}</span>
-                      <svg className="h-4 w-4 shrink-0 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                    </a>
-                  </li>
-                ))}
-            </ul>
-          </article>
+            <article className="skillhub-panel rounded-[1.75rem] p-6">
+              <h2 className="text-lg font-semibold text-black">
+                Файлы для скачивания
+              </h2>
+              <ul className="mt-3 space-y-2">
+                {unit.attachments
+                  .filter((a) => a.type === "FILE")
+                  .map((file) => (
+                    <li key={file.id}>
+                      <a
+                        href={file.url}
+                        download={file.name}
+                        className="flex items-center gap-3 rounded-2xl border border-black/10 bg-[var(--surface-muted)] px-4 py-3 hover:border-[var(--accent)]"
+                      >
+                        <svg
+                          className="h-5 w-5 shrink-0 text-[var(--muted)]"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l5 5v14a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        <span className="flex-1 truncate text-sm font-medium text-black">
+                          {file.name}
+                        </span>
+                        <svg
+                          className="h-4 w-4 shrink-0 text-[var(--muted)]"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          />
+                        </svg>
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </article>
           ) : null}
 
-          {(unit.material?.content || videoUrl) ? (
-          <article className="skillhub-panel rounded-[1.75rem] p-6">
-            <h2 className="text-lg font-semibold text-black">Материалы урока</h2>
+          {unit.material?.content || videoUrl ? (
+            <article className="skillhub-panel rounded-[1.75rem] p-6">
+              <h2 className="text-lg font-semibold text-black">
+                Материалы урока
+              </h2>
 
-            {unit.material?.content ? (
-              <MarkdownContent content={unit.material.content} />
-            ) : null}
+              {unit.material?.content ? (
+                <MarkdownContent content={unit.material.content} />
+              ) : null}
 
-            {videoUrl ? (
-              <div className={`rounded-[1.5rem] border border-black/10 bg-[var(--surface-muted)] p-4 ${unit.material?.content ? "mt-5" : "mt-3"}`}>
-                <p className="mb-3 text-sm font-medium text-black">Видео урока</p>
-
-                {youtubeEmbedUrl ? (
-                  <div className="overflow-hidden rounded-2xl border border-black/10 bg-black">
-                    <div className="relative w-full pt-[56.25%]">
-                      <iframe
-                        src={youtubeEmbedUrl}
-                        title={`Видео: ${unit.title}`}
-                        className="absolute left-0 top-0 h-full w-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        referrerPolicy="strict-origin-when-cross-origin"
-                        allowFullScreen
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                {showHtml5Video ? (
-                  <div className="space-y-3">
-                    <video
-                      className="w-full overflow-hidden rounded-2xl border border-black/10 bg-black"
-                      src={videoUrl}
-                      controls
-                      preload="metadata"
-                    />
-                    {hintVideoFormat ? (
-                      <p className="text-xs text-[var(--muted)]">
-                        Если видео не воспроизводится во встроенном плеере, откройте
-                        его по прямой ссылке ниже.
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <a
-                  href={videoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-block text-sm text-[var(--accent-strong)] underline"
+              {videoUrl ? (
+                <div
+                  className={`rounded-[1.5rem] border border-black/10 bg-[var(--surface-muted)] p-4 ${unit.material?.content ? "mt-5" : "mt-3"}`}
                 >
-                  Открыть видео в новой вкладке
-                </a>
-              </div>
-            ) : null}
-          </article>
+                  <p className="mb-3 text-sm font-medium text-black">
+                    Видео урока
+                  </p>
+
+                  {youtubeEmbedUrl ? (
+                    <div className="overflow-hidden rounded-2xl border border-black/10 bg-black">
+                      <div className="relative w-full pt-[56.25%]">
+                        <iframe
+                          src={youtubeEmbedUrl}
+                          title={`Видео: ${unit.title}`}
+                          className="absolute left-0 top-0 h-full w-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          referrerPolicy="strict-origin-when-cross-origin"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {showHtml5Video ? (
+                    <div className="space-y-3">
+                      <video
+                        className="w-full overflow-hidden rounded-2xl border border-black/10 bg-black"
+                        src={videoUrl}
+                        controls
+                        preload="metadata"
+                      />
+                      {hintVideoFormat ? (
+                        <p className="text-xs text-[var(--muted)]">
+                          Если видео не воспроизводится во встроенном плеере,
+                          откройте его по прямой ссылке ниже.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <a
+                    href={videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-block text-sm text-[var(--accent-strong)] underline"
+                  >
+                    Открыть видео в новой вкладке
+                  </a>
+                </div>
+              ) : null}
+            </article>
           ) : null}
 
           {unit.tests.length > 0 ? (
-          <article className="skillhub-panel rounded-[1.75rem] p-6">
-            <h2 className="text-lg font-semibold text-black">Тесты</h2>
-            <div className="mt-3 space-y-2">
-              {unit.tests.map((test, index) => (
-                <Link
-                  key={test.id}
-                  href={`/tests/${test.id}`}
-                  className="block rounded-2xl border border-black/10 bg-[var(--surface-muted)] px-4 py-3 hover:border-[var(--accent)]"
-                >
-                  <p className="text-sm font-medium text-black">
-                    {index + 1}. {test.title}
-                  </p>
-                  <p className="text-xs text-[var(--muted)]">
-                    Вопросов: {test.questions.length}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </article>
+            <article className="skillhub-panel rounded-[1.75rem] p-6">
+              <h2 className="text-lg font-semibold text-black">Тесты</h2>
+              <div className="mt-3 space-y-2">
+                {unit.tests.map((test, index) => (
+                  <Link
+                    key={test.id}
+                    href={`/tests/${test.id}`}
+                    className="block rounded-2xl border border-black/10 bg-[var(--surface-muted)] px-4 py-3 hover:border-[var(--accent)]"
+                  >
+                    <p className="text-sm font-medium text-black">
+                      {index + 1}. {test.title}
+                    </p>
+                    <p className="text-xs text-[var(--muted)]">
+                      Вопросов: {test.questions.length}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </article>
           ) : null}
 
           {unit.lesson ? (

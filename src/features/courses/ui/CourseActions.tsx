@@ -17,7 +17,10 @@ export function CourseActions({
   const [moduleTitle, setModuleTitle] = useState("");
   const [unitTitle, setUnitTitle] = useState("");
   const [selectedModule, setSelectedModule] = useState("");
-  const [modules, setModules] = useState<Array<{ id: string; title: string }>>([]);
+  const [modules, setModules] = useState<
+    Array<{ id: string; title: string; depth: number }>
+  >([]);
+  const [parentModuleId, setParentModuleId] = useState<string>("");
 
   const [sessionTitle, setSessionTitle] = useState("");
   const [sessionStartsAt, setSessionStartsAt] = useState("");
@@ -42,12 +45,39 @@ export function CourseActions({
     });
     if (!res.ok) return;
 
-    const data = (await res.json()) as Array<{ id: string; title: string }>;
-    setModules(data);
+    type ModuleNode = {
+      id: string;
+      title: string;
+      children?: ModuleNode[];
+    };
+
+    const tree = (await res.json()) as ModuleNode[];
+
+    const flatten = (
+      nodes: ModuleNode[],
+      depth = 0,
+    ): Array<{ id: string; title: string; depth: number }> => {
+      const result: Array<{ id: string; title: string; depth: number }> = [];
+      for (const node of nodes) {
+        result.push({ id: node.id, title: node.title, depth });
+        if (node.children?.length) {
+          result.push(...flatten(node.children, depth + 1));
+        }
+      }
+      return result;
+    };
+
+    const flatModules = flatten(tree);
+    setModules(flatModules);
 
     setSelectedModule((prev) => {
-      if (prev && data.some((item) => item.id === prev)) return prev;
-      return data[0]?.id ?? "";
+      if (prev && flatModules.some((item) => item.id === prev)) return prev;
+      return flatModules[0]?.id ?? "";
+    });
+
+    setParentModuleId((prev) => {
+      if (!prev) return "";
+      return flatModules.some((item) => item.id === prev) ? prev : "";
     });
   }, [courseId]);
 
@@ -64,7 +94,9 @@ export function CourseActions({
         method: "POST",
       });
 
-      setStatus(res.ok ? "Вы успешно записались на курс." : "Не удалось записаться.");
+      setStatus(
+        res.ok ? "Вы успешно записались на курс." : "Не удалось записаться.",
+      );
       if (res.ok) router.refresh();
     } catch {
       setStatus("Сетевая ошибка при записи на курс.");
@@ -87,7 +119,10 @@ export function CourseActions({
       const res = await fetch(`/api/courses/${courseId}/modules`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: moduleTitle.trim() }),
+        body: JSON.stringify({
+          title: moduleTitle.trim(),
+          parentId: parentModuleId || null,
+        }),
       });
 
       if (!res.ok) {
@@ -96,7 +131,8 @@ export function CourseActions({
       }
 
       setModuleTitle("");
-      setStatus("Модуль создан.");
+      setParentModuleId("");
+      setStatus("Глава создана.");
       await loadModules();
       router.refresh();
     } catch {
@@ -213,34 +249,59 @@ export function CourseActions({
 
       {canManage ? (
         <div className="grid gap-3 md:grid-cols-3">
-          <form onSubmit={createModule} className="skillhub-panel rounded-[1.5rem] p-4 space-y-3">
-            <h3 className="text-base font-semibold text-black">Добавить модуль</h3>
+          <form
+            onSubmit={createModule}
+            className="skillhub-panel rounded-[1.5rem] p-4 space-y-3"
+          >
+            <h3 className="text-base font-semibold text-black">
+              Добавить главу
+            </h3>
             <input
               className={fieldClass}
               value={moduleTitle}
               onChange={(e) => setModuleTitle(e.target.value)}
-              placeholder="Название модуля"
+              placeholder="Название главы"
             />
+
+            <select
+              className={fieldClass}
+              value={parentModuleId}
+              onChange={(e) => setParentModuleId(e.target.value)}
+            >
+              <option value="">Без родителя (корневая глава)</option>
+              {modules.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {"— ".repeat(item.depth)}
+                  {item.title}
+                </option>
+              ))}
+            </select>
             <button
               className="skillhub-button-outline rounded-2xl px-4 py-2.5 text-sm disabled:opacity-60"
               type="submit"
               disabled={loading.module}
             >
-              {loading.module ? "Сохраняем..." : "Сохранить модуль"}
+              {loading.module ? "Сохраняем..." : "Сохранить главу"}
             </button>
           </form>
 
-          <form onSubmit={createUnit} className="skillhub-panel rounded-[1.5rem] p-4 space-y-3">
-            <h3 className="text-base font-semibold text-black">Добавить занятие</h3>
+          <form
+            onSubmit={createUnit}
+            className="skillhub-panel rounded-[1.5rem] p-4 space-y-3"
+          >
+            <h3 className="text-base font-semibold text-black">
+              Добавить занятие
+            </h3>
 
             <select
               className={fieldClass}
               value={selectedModule}
               onChange={(e) => setSelectedModule(e.target.value)}
             >
-              <option value="">Выберите модуль</option>
+              <option value="">Выберите главу</option>
               {modules.map((item) => (
                 <option key={item.id} value={item.id}>
+                  {"— ".repeat(item.depth)}
                   {item.title}
                 </option>
               ))}
@@ -266,7 +327,9 @@ export function CourseActions({
             onSubmit={createLiveSession}
             className="skillhub-panel rounded-[1.5rem] p-4 space-y-3"
           >
-            <h3 className="text-base font-semibold text-black">Создать live-сессию</h3>
+            <h3 className="text-base font-semibold text-black">
+              Создать live-сессию
+            </h3>
 
             <input
               className={fieldClass}
@@ -317,7 +380,8 @@ export function CourseActions({
           ) : (
             <div className="flex items-center gap-3">
               <span className="text-sm text-red-600 font-medium">
-                Удалить курс безвозвратно? Все модули, занятия и тесты будут удалены.
+                Удалить курс безвозвратно? Все модули, занятия и тесты будут
+                удалены.
               </span>
               <button
                 type="button"

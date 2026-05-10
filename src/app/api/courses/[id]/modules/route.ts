@@ -3,6 +3,7 @@ import { Role } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { getCourseModuleTree } from "@/features/courses/lib/courseTree";
 
 const createModuleSchema = z.object({
   title: z
@@ -11,6 +12,7 @@ const createModuleSchema = z.object({
     .min(2, "Title is too short")
     .max(120, "Title is too long"),
   position: z.number().int().min(0).max(10_000).optional(),
+  parentId: z.string().trim().min(1).nullable().optional(),
 });
 
 export async function GET(
@@ -23,13 +25,9 @@ export async function GET(
 
   const { id } = await params;
 
-  const modules = await db.courseModule.findMany({
-    where: { courseId: id },
-    include: { units: { orderBy: { position: "asc" } } },
-    orderBy: { position: "asc" },
-  });
+  const modulesTree = await getCourseModuleTree(id);
 
-  return NextResponse.json(modules);
+  return NextResponse.json(modulesTree);
 }
 
 export async function POST(
@@ -75,11 +73,29 @@ export async function POST(
     );
   }
 
+  let parentId: string | null = null;
+  if (parsed.data.parentId) {
+    const parent = await db.courseModule.findUnique({
+      where: { id: parsed.data.parentId },
+      select: { id: true, courseId: true },
+    });
+
+    if (!parent || parent.courseId !== course.id) {
+      return NextResponse.json(
+        { error: "Parent module not found in this course" },
+        { status: 400 },
+      );
+    }
+
+    parentId = parent.id;
+  }
+
   const courseModule = await db.courseModule.create({
     data: {
       courseId: course.id,
       title: parsed.data.title,
       position: parsed.data.position ?? 0,
+      parentId,
     },
   });
 
