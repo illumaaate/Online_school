@@ -9,7 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-.claude
+/.claude
 AGENTS.md
 CLAUDE.md
 test.md
