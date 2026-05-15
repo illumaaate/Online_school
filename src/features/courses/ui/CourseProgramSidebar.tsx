@@ -183,14 +183,14 @@ export function CourseProgramSidebar({
                 </div>
 
                 <ul className="space-y-1.5">
-                  {module.units.map((unit) => {
+                  {module.units.flatMap((unit) => {
                     const isActiveUnit = unit.id === activeUnitId;
                     const hasActiveTest = !!unit.tests?.some(
                       (test) => test.id === activeTestId,
                     );
                     const done = courseId ? isCompleted(unit.id) : false;
 
-                    return (
+                    const unitItem = (
                       <li key={unit.id}>
                         <div
                           className={clsx(
@@ -260,32 +260,35 @@ export function CourseProgramSidebar({
                             ) : null}
                           </div>
                         </div>
-
-                        {unit.tests?.length ? (
-                          <ul className="mt-1.5 space-y-1 pl-8">
-                            {unit.tests.map((test) => {
-                              const isActiveTest = test.id === activeTestId;
-
-                              return (
-                                <li key={test.id}>
-                                  <Link
-                                    href={`/tests/${test.id}`}
-                                    className={clsx(
-                                      "block rounded-xl border px-2.5 py-1.5 text-xs transition",
-                                      isActiveTest
-                                        ? "border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-black"
-                                        : "border-transparent bg-white text-[var(--muted)] hover:border-black/10 hover:bg-[#fcfcfc] hover:text-black",
-                                    )}
-                                  >
-                                    Тест: {test.title}
-                                  </Link>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : null}
                       </li>
                     );
+
+                    const testItems = (unit.tests ?? []).map((test) => {
+                      const isActiveTest = test.id === activeTestId;
+                      return (
+                        <li
+                          key={test.id}
+                          className="ml-7 border-l border-black/15 pl-3"
+                        >
+                          <Link
+                            href={`/tests/${test.id}`}
+                            className={clsx(
+                              "flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition",
+                              isActiveTest
+                                ? "border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-black"
+                                : "border-black/10 bg-white text-[var(--muted)] hover:border-black/20 hover:bg-[#fcfcfc] hover:text-black",
+                            )}
+                          >
+                            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-black/15 text-[10px] font-semibold text-[var(--muted)]">
+                              ✓
+                            </span>
+                            <span className="truncate">{test.title}</span>
+                          </Link>
+                        </li>
+                      );
+                    });
+
+                    return [unitItem, ...testItems];
                   })}
                 </ul>
 

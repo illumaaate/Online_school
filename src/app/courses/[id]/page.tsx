@@ -70,33 +70,31 @@ function renderCourseMap(
 
       <div className="mt-4 space-y-2">
         {module.units.map((unit) => (
-          <div
-            key={unit.id}
-            className="rounded-2xl border border-black/10 bg-[var(--surface-muted)] p-3"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <Link
-                href={`/learn/${unit.id}`}
-                className="truncate text-sm font-medium text-black hover:underline"
-              >
-                {unit.title}
-              </Link>
+          <div key={unit.id} className="space-y-2">
+            <Link
+              href={`/learn/${unit.id}`}
+              className="flex items-center gap-2 rounded-2xl border border-black/10 bg-[var(--surface-muted)] px-4 py-3 text-sm font-medium text-black hover:border-black/20"
+            >
+              <span className="truncate">{unit.title}</span>
               {unit.unitType === "LIVE" ? (
-                <span className="shrink-0 rounded-md border border-black/10 px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+                <span className="ml-auto shrink-0 rounded-md border border-black/10 bg-white px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">
                   Live
                 </span>
               ) : null}
-            </div>
+            </Link>
 
             {unit.tests.length ? (
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="ml-7 space-y-2 border-l border-black/15 pl-3">
                 {unit.tests.map((test) => (
                   <Link
                     key={test.id}
                     href={`/tests/${test.id}`}
-                    className="skillhub-chip rounded-lg px-2.5 py-1 text-xs font-medium"
+                    className="flex items-center gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black hover:border-black/20"
                   >
-                    Тест: {test.title}
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-black/15 text-[10px] font-semibold text-[var(--muted)]">
+                      ✓
+                    </span>
+                    <span className="truncate font-medium">{test.title}</span>
                   </Link>
                 ))}
               </div>

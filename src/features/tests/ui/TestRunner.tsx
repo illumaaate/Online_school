@@ -9,7 +9,8 @@ type Question = {
   question: string;
   type: "SINGLE" | "MULTI" | "OPEN" | "NUMBER";
   points: number;
-  options: Array<{ id: string; text: string }>;
+  correctText?: string | null;
+  options: Array<{ id: string; text: string; isCorrect?: boolean }>;
 };
 
 type TestSubmitResult = {
@@ -29,7 +30,57 @@ type TestRunnerProps = {
 type AnswerState = {
   selectedOptionIds: string[];
   textAnswer: string;
+  letterAnswer: string;
 };
+
+function toLetter(index: number): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  return alphabet[index] ?? String(index + 1);
+}
+
+function parseLetterAnswer(input: string, optionsCount: number): number[] {
+  const normalized = input
+    .toUpperCase()
+    .replaceAll(" ", "")
+    .replaceAll(",", "")
+    .replaceAll(";", "")
+    .replaceAll(".", "");
+
+  const cyrToLat: Record<string, string> = {
+    А: "A",
+    В: "B",
+    С: "C",
+    Д: "D",
+    Е: "E",
+    Ф: "F",
+    Г: "G",
+    Н: "H",
+    И: "I",
+    Ж: "J",
+    К: "K",
+    Л: "L",
+    М: "M",
+    П: "P",
+    Р: "R",
+    Т: "T",
+    У: "U",
+    Х: "X",
+    Ы: "Y",
+    З: "Z",
+  };
+
+  const indices = new Set<number>();
+  for (const rawChar of normalized) {
+    const char = cyrToLat[rawChar] ?? rawChar;
+    const code = char.charCodeAt(0);
+    if (code < 65 || code > 90) continue;
+
+    const index = code - 65;
+    if (index >= 0 && index < optionsCount) indices.add(index);
+  }
+
+  return [...indices].sort((a, b) => a - b);
+}
 
 export function TestRunner({
   testId,
@@ -41,6 +92,7 @@ export function TestRunner({
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showChecks, setShowChecks] = useState(false);
 
   const payload = useMemo(
     () =>
@@ -65,11 +117,21 @@ export function TestRunner({
           ? current.filter((id) => id !== optionId)
           : [...current, optionId];
 
+      const letterAnswer = next
+        .map((id) => {
+          const idx = questions
+            .find((q) => q.id === questionId)
+            ?.options.findIndex((o) => o.id === id);
+          return idx !== undefined && idx >= 0 ? toLetter(idx) : "";
+        })
+        .join("");
+
       return {
         ...prev,
         [questionId]: {
           selectedOptionIds: next,
           textAnswer: prev[questionId]?.textAnswer ?? "",
+          letterAnswer,
         },
       };
     });
@@ -81,8 +143,61 @@ export function TestRunner({
       [questionId]: {
         selectedOptionIds: prev[questionId]?.selectedOptionIds ?? [],
         textAnswer: text,
+        letterAnswer: prev[questionId]?.letterAnswer ?? "",
       },
     }));
+  }
+
+  function setLetterAnswer(question: Question, text: string) {
+    const indices = parseLetterAnswer(text, question.options.length);
+    const selectedOptionIds = indices
+      .map((index) => question.options[index]?.id)
+      .filter((id): id is string => Boolean(id));
+
+    setAnswers((prev) => ({
+      ...prev,
+      [question.id]: {
+        selectedOptionIds,
+        textAnswer: prev[question.id]?.textAnswer ?? "",
+        letterAnswer: text,
+      },
+    }));
+  }
+
+  function isLetterAnswerCorrect(question: Question): boolean | null {
+    const current = answers[question.id];
+    if (!current?.letterAnswer.trim()) return null;
+
+    const correctOptionIds = question.options
+      .filter((option) => option.isCorrect)
+      .map((option) => option.id)
+      .sort();
+
+    if (!correctOptionIds.length) return null;
+
+    const selected = [...current.selectedOptionIds].sort();
+    return JSON.stringify(selected) === JSON.stringify(correctOptionIds);
+  }
+
+  function isOpenOrNumberAnswerCorrect(question: Question): boolean | null {
+    const expected = question.correctText?.trim();
+    const given = answers[question.id]?.textAnswer?.trim();
+
+    if (!expected || !given) return null;
+
+    if (question.type === "NUMBER") {
+      const expectedNumber = Number.parseFloat(expected);
+      const givenNumber = Number.parseFloat(given);
+      if (Number.isNaN(expectedNumber) || Number.isNaN(givenNumber))
+        return null;
+      return expectedNumber === givenNumber;
+    }
+
+    if (question.type === "OPEN") {
+      return expected.toLowerCase() === given.toLowerCase();
+    }
+
+    return null;
   }
 
   async function submit() {
@@ -118,6 +233,7 @@ export function TestRunner({
       }
 
       const result = (await submitRes.json()) as TestSubmitResult;
+      setShowChecks(true);
 
       if (relatedCourseId && relatedUnitId) {
         markUnitCompleted(relatedCourseId, relatedUnitId);
@@ -125,7 +241,7 @@ export function TestRunner({
 
       if (result.requiresReview) {
         setStatus(
-          `Отправлено. Автооценка: ${result.score ?? 0}/${result.maxScore ?? 0}. Есть ответы на ручную проверку.`,
+          `Отправлено. Автооценка: ${result.score ?? 0}/${result.maxScore ?? 0}.`,
         );
       } else {
         setStatus(
@@ -148,34 +264,64 @@ export function TestRunner({
           key={question.id}
           className="rounded-xl border border-zinc-200 bg-white p-4"
         >
-          <div className="font-medium text-black">
-            <span className="mr-1">{idx + 1}.</span>
-            <div className="inline-block align-top max-w-full">
-              <MarkdownContent content={question.question} />
-            </div>
-          </div>
-          <p className="text-xs text-zinc-500">
-            Тип: {question.type} | Баллы: {question.points}
+          <p className="text-sm font-semibold text-black">
+            Вопрос {idx + 1}/{questions.length}
           </p>
+          <div className="max-w-full align-top">
+            <MarkdownContent
+              content={question.question}
+              showImageCaption={false}
+            />
+          </div>
 
           {question.type === "OPEN" ? (
-            <textarea
-              className="mt-2 w-full rounded-lg border border-zinc-300 p-2"
-              value={answers[question.id]?.textAnswer ?? ""}
-              onChange={(e) => setOpenAnswer(question.id, e.target.value)}
-              placeholder="Введите развернутый ответ"
-            />
+            <>
+              <textarea
+                className="mt-2 w-full rounded-lg border border-zinc-300 p-2"
+                value={answers[question.id]?.textAnswer ?? ""}
+                onChange={(e) => setOpenAnswer(question.id, e.target.value)}
+                placeholder="Введите развернутый ответ"
+              />
+              {showChecks && isOpenOrNumberAnswerCorrect(question) !== null ? (
+                <div
+                  className={`mt-2 rounded-lg border px-3 py-2 text-sm font-semibold ${
+                    isOpenOrNumberAnswerCorrect(question)
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : "border-red-300 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {isOpenOrNumberAnswerCorrect(question)
+                    ? "Правильно"
+                    : "Неправильно"}
+                </div>
+              ) : null}
+            </>
           ) : question.type === "NUMBER" ? (
-            <input
-              type="number"
-              className="mt-2 w-full rounded-lg border border-zinc-300 p-2"
-              value={answers[question.id]?.textAnswer ?? ""}
-              onChange={(e) => setOpenAnswer(question.id, e.target.value)}
-              placeholder="Введите число"
-            />
+            <>
+              <input
+                type="number"
+                className="mt-2 w-full rounded-lg border border-zinc-300 p-2"
+                value={answers[question.id]?.textAnswer ?? ""}
+                onChange={(e) => setOpenAnswer(question.id, e.target.value)}
+                placeholder="Введите число"
+              />
+              {showChecks && isOpenOrNumberAnswerCorrect(question) !== null ? (
+                <div
+                  className={`mt-2 rounded-lg border px-3 py-2 text-sm font-semibold ${
+                    isOpenOrNumberAnswerCorrect(question)
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : "border-red-300 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {isOpenOrNumberAnswerCorrect(question)
+                    ? "Правильно"
+                    : "Неправильно"}
+                </div>
+              ) : null}
+            </>
           ) : (
             <div className="mt-2 space-y-2">
-              {question.options.map((option) => (
+              {question.options.map((option, optionIndex) => (
                 <label
                   key={option.id}
                   className="flex cursor-pointer items-center gap-2 text-sm"
@@ -193,9 +339,38 @@ export function TestRunner({
                       )
                     }
                   />
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-zinc-300 px-1 text-[11px] font-semibold text-zinc-700">
+                    {toLetter(optionIndex)}
+                  </span>
                   {option.text}
                 </label>
               ))}
+
+              <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-2.5">
+                <p className="text-xs text-zinc-500">
+                  Можно ответить буквами (например: A или AC)
+                </p>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-lg border border-zinc-300 bg-white p-2 text-sm uppercase"
+                  value={answers[question.id]?.letterAnswer ?? ""}
+                  onChange={(e) => setLetterAnswer(question, e.target.value)}
+                  placeholder={question.type === "SINGLE" ? "A" : "AC"}
+                />
+                {showChecks && isLetterAnswerCorrect(question) !== null ? (
+                  <div
+                    className={`mt-2 rounded-lg border px-3 py-2 text-sm font-semibold ${
+                      isLetterAnswerCorrect(question)
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                        : "border-red-300 bg-red-50 text-red-700"
+                    }`}
+                  >
+                    {isLetterAnswerCorrect(question)
+                      ? "Правильно"
+                      : "Неправильно"}
+                  </div>
+                ) : null}
+              </div>
             </div>
           )}
         </div>

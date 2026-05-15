@@ -8,7 +8,11 @@ async function canEditTest(userId: string, userRole: Role, testId: string) {
     where: { id: testId },
     select: {
       createdById: true,
-      unit: { select: { module: { select: { course: { select: { teacherId: true } } } } } },
+      unit: {
+        select: {
+          module: { select: { course: { select: { teacherId: true } } } },
+        },
+      },
     },
   });
   if (!test) return null;
@@ -25,14 +29,19 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   if (!(await canEditTest(user.id, user.role, id))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json()) as { title?: string; description?: string; isPublished?: boolean };
+  const body = (await request.json()) as {
+    title?: string;
+    description?: string;
+    isPublished?: boolean;
+  };
 
   const test = await db.test.update({
     where: { id },
@@ -51,7 +60,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   if (!(await canEditTest(user.id, user.role, id))) {

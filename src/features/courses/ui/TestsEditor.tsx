@@ -104,10 +104,7 @@ function QuestionEditor({
     try {
       const url = await uploadImage(file);
       if (url) {
-        setText(
-          (prev) =>
-            `${prev}${prev.trim() ? "\n\n" : ""}![Изображение задания](${url})`,
-        );
+        setText((prev) => `${prev}${prev.trim() ? "\n\n" : ""}![](${url})`);
       }
     } finally {
       setUploadingImage(false);
@@ -443,7 +440,7 @@ function TestItem({
       if (url) {
         setNewQ((prev) => ({
           ...prev,
-          text: `${prev.text}${prev.text.trim() ? "\n\n" : ""}![Изображение задания](${url})`,
+          text: `${prev.text}${prev.text.trim() ? "\n\n" : ""}![](${url})`,
         }));
       }
     } finally {

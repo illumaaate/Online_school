@@ -20,6 +20,7 @@ export function CourseActions({
   const [modules, setModules] = useState<
     Array<{ id: string; title: string; depth: number }>
   >([]);
+
   const [parentModuleId, setParentModuleId] = useState<string>("");
 
   const [sessionTitle, setSessionTitle] = useState("");

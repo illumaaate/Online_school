@@ -16,7 +16,17 @@ export default async function TestPage({
     where: { id },
     include: {
       questions: {
-        include: { options: true },
+        select: {
+          id: true,
+          question: true,
+          type: true,
+          points: true,
+          correctText: true,
+          options: {
+            select: { id: true, text: true, isCorrect: true, position: true },
+            orderBy: { position: "asc" },
+          },
+        },
         orderBy: { position: "asc" },
       },
       unit: {
@@ -65,7 +75,10 @@ export default async function TestPage({
   }
 
   const resolvedCourseId =
-    test.course?.id ?? test.unit?.module.course.id ?? test.lesson?.courseId ?? null;
+    test.course?.id ??
+    test.unit?.module.course.id ??
+    test.lesson?.courseId ??
+    null;
   const resolvedUnitId = test.unit?.id ?? null;
 
   const courseProgram = resolvedCourseId
@@ -148,7 +161,8 @@ export default async function TestPage({
               {test.title}
             </h1>
             <p className="mt-2 text-center text-sm text-[var(--muted)]">
-              {test.description ?? "Решите задания и отправьте ответы на проверку."}
+              {test.description ??
+                "Решите задания и отправьте ответы на проверку."}
             </p>
 
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -156,13 +170,17 @@ export default async function TestPage({
                 <p className="text-[11px] uppercase tracking-wide text-[var(--muted)]">
                   Вопросов
                 </p>
-                <p className="mt-1 text-xl font-semibold text-black">{totalQuestions}</p>
+                <p className="mt-1 text-xl font-semibold text-black">
+                  {totalQuestions}
+                </p>
               </div>
               <div className="rounded-2xl border border-black/10 bg-[var(--surface-muted)] p-3 text-center">
                 <p className="text-[11px] uppercase tracking-wide text-[var(--muted)]">
                   Максимум баллов
                 </p>
-                <p className="mt-1 text-xl font-semibold text-black">{totalPoints}</p>
+                <p className="mt-1 text-xl font-semibold text-black">
+                  {totalPoints}
+                </p>
               </div>
               <div className="rounded-2xl border border-black/10 bg-[var(--surface-muted)] p-3 text-center">
                 <p className="text-[11px] uppercase tracking-wide text-[var(--muted)]">

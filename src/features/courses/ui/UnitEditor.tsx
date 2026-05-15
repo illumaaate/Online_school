@@ -55,14 +55,18 @@ export function UnitEditor({
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(
+    null,
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     fetch(`/api/units/${unitId}/attachments`)
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setAttachments(data); })
+      .then((data) => {
+        if (Array.isArray(data)) setAttachments(data);
+      })
       .catch(() => null);
   }, [open, unitId]);
 
@@ -100,8 +104,11 @@ export function UnitEditor({
       setUploadError((err as { error?: string }).error ?? "Ошибка загрузки.");
       return null;
     }
-    const uploaded = await uploadRes.json() as {
-      url: string; name: string; size: number; type: "FILE" | "IMAGE";
+    const uploaded = (await uploadRes.json()) as {
+      url: string;
+      name: string;
+      size: number;
+      type: "FILE" | "IMAGE";
     };
     // Force type based on which button was used
     const finalType = kind === "image" ? "IMAGE" : "FILE";
@@ -152,7 +159,9 @@ export function UnitEditor({
   }
 
   async function removeAttachment(id: string) {
-    const res = await fetch(`/api/units/${unitId}/attachments/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/units/${unitId}/attachments/${id}`, {
+      method: "DELETE",
+    });
     if (res.ok) setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
@@ -168,12 +177,18 @@ export function UnitEditor({
         fetch(`/api/units/${unitId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: title.trim(), description: description.trim() || null }),
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim() || null,
+          }),
         }),
         fetch(`/api/units/${unitId}/material`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: content.trim() || null, videoUrl: videoUrl.trim() || null }),
+          body: JSON.stringify({
+            content: content.trim() || null,
+            videoUrl: videoUrl.trim() || null,
+          }),
         }),
       ]);
       if (!unitRes.ok || !matRes.ok) {
@@ -217,19 +232,30 @@ export function UnitEditor({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between px-6 py-4 text-left"
       >
-        <span className="text-lg font-semibold text-black">Редактировать урок</span>
+        <span className="text-lg font-semibold text-black">
+          Редактировать урок
+        </span>
         <svg
           className={`h-5 w-5 text-[var(--muted)] transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
 
       {open && (
         <div className="border-t border-black/10 px-6 pb-6 pt-5 space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-[var(--muted)]">Название урока</label>
+            <label className="text-xs font-medium text-[var(--muted)]">
+              Название урока
+            </label>
             <input
               className={fieldClass}
               value={title}
@@ -239,7 +265,9 @@ export function UnitEditor({
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-[var(--muted)]">Описание (необязательно)</label>
+            <label className="text-xs font-medium text-[var(--muted)]">
+              Описание (необязательно)
+            </label>
             <textarea
               className={`${fieldClass} resize-none`}
               rows={2}
@@ -252,10 +280,22 @@ export function UnitEditor({
           {/* Text content + image insertion */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-[var(--muted)]">Текстовый материал</label>
+              <label className="text-xs font-medium text-[var(--muted)]">
+                Текстовый материал
+              </label>
               <label className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-black/10 px-2.5 py-1 text-xs text-[var(--muted)] hover:border-[var(--accent)] hover:text-black">
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4-4 4 4 4-8 4 8M4 20h16a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 16l4-4 4 4 4-8 4 8M4 20h16a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
                 </svg>
                 {uploadingImage ? "Загрузка..." : "Вставить картинку"}
                 <input
@@ -278,14 +318,17 @@ export function UnitEditor({
               placeholder="Введите текст урока, конспект, задание..."
             />
             <p className="text-[11px] text-[var(--muted)]">
-              Поддерживается Markdown. Кнопка «Вставить картинку» загружает файл и вставляет его на позицию курсора.
+              Поддерживается Markdown. Кнопка «Вставить картинку» загружает файл
+              и вставляет его на позицию курсора.
             </p>
           </div>
 
           {/* Uploaded images list */}
           {imageAttachments.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-[var(--muted)]">Загруженные картинки</p>
+              <p className="text-xs font-medium text-[var(--muted)]">
+                Загруженные картинки
+              </p>
               <ul className="space-y-2">
                 {imageAttachments.map((att) => (
                   <li
@@ -298,7 +341,9 @@ export function UnitEditor({
                       alt={att.name}
                       className="h-10 w-10 shrink-0 rounded-lg object-cover"
                     />
-                    <span className="flex-1 truncate text-sm text-black">{att.name}</span>
+                    <span className="flex-1 truncate text-sm text-black">
+                      {att.name}
+                    </span>
                     <button
                       type="button"
                       onClick={() => handleInsertImage(att)}
@@ -312,8 +357,18 @@ export function UnitEditor({
                       className="shrink-0 rounded-lg p-1 text-[var(--muted)] hover:text-red-500"
                       title="Удалить"
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </li>
@@ -323,7 +378,9 @@ export function UnitEditor({
           )}
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-[var(--muted)]">Ссылка на видео</label>
+            <label className="text-xs font-medium text-[var(--muted)]">
+              Ссылка на видео
+            </label>
             <input
               className={fieldClass}
               value={videoUrl}
@@ -331,13 +388,16 @@ export function UnitEditor({
               placeholder="YouTube URL или прямая ссылка на видеофайл"
             />
             <p className="text-[11px] text-[var(--muted)]">
-              Поддерживаются ссылки YouTube (youtu.be, youtube.com/watch) и прямые ссылки .mp4, .webm
+              Поддерживаются ссылки YouTube (youtu.be, youtube.com/watch) и
+              прямые ссылки .mp4, .webm
             </p>
           </div>
 
           {/* File attachments (documents) */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-[var(--muted)]">Файлы для скачивания</label>
+            <label className="text-xs font-medium text-[var(--muted)]">
+              Файлы для скачивания
+            </label>
 
             {fileAttachments.length > 0 && (
               <ul className="space-y-2">
@@ -346,19 +406,43 @@ export function UnitEditor({
                     key={att.id}
                     className="flex items-center gap-3 rounded-2xl border border-black/10 bg-[var(--surface-muted)] px-4 py-2.5"
                   >
-                    <svg className="h-4 w-4 shrink-0 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l5 5v14a2 2 0 01-2 2z" />
+                    <svg
+                      className="h-4 w-4 shrink-0 text-[var(--muted)]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5l5 5v14a2 2 0 01-2 2z"
+                      />
                     </svg>
-                    <span className="flex-1 truncate text-sm text-black">{att.name}</span>
-                    <span className="shrink-0 text-xs text-[var(--muted)]">{formatSize(att.size)}</span>
+                    <span className="flex-1 truncate text-sm text-black">
+                      {att.name}
+                    </span>
+                    <span className="shrink-0 text-xs text-[var(--muted)]">
+                      {formatSize(att.size)}
+                    </span>
                     <button
                       type="button"
                       onClick={() => removeAttachment(att.id)}
                       className="ml-1 shrink-0 rounded-lg p-1 text-[var(--muted)] hover:text-red-500"
                       title="Удалить"
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </li>
@@ -367,8 +451,18 @@ export function UnitEditor({
             )}
 
             <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-black/20 px-4 py-3 hover:border-[var(--accent)] hover:bg-[var(--surface-muted)]">
-              <svg className="h-5 w-5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              <svg
+                className="h-5 w-5 text-[var(--muted)]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               <span className="text-sm text-[var(--muted)]">
                 {uploadingFile ? "Загрузка..." : "Добавить файл для скачивания"}
@@ -396,7 +490,9 @@ export function UnitEditor({
           </div>
 
           {status && (
-            <p className={`text-sm font-medium ${status.ok ? "text-green-600" : "text-red-500"}`}>
+            <p
+              className={`text-sm font-medium ${status.ok ? "text-green-600" : "text-red-500"}`}
+            >
               {status.msg}
             </p>
           )}
@@ -421,7 +517,9 @@ export function UnitEditor({
               </button>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-red-600">Удалить безвозвратно?</span>
+                <span className="text-sm text-red-600">
+                  Удалить безвозвратно?
+                </span>
                 <button
                   type="button"
                   onClick={deleteUnit}
